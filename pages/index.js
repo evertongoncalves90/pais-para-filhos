@@ -4,7 +4,7 @@ export default function Home() {
     const [nomeFilhos, setNomeFilhos] = useState('');
     const [dataNascimento, setDataNascimento] = useState('');
     const [mensagem, setMensagem] = useState('');
-    const [fotos, setFotos] = useState([]);
+    const [setFotos] = useState([]);
 
     const handleSubmit = (e) => {
         e.preventDefault();
