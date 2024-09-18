@@ -1,4 +1,3 @@
-import { useRouter } from 'next/router';
 import mongoose from 'mongoose';
 import Timeline from '../../models/Timeline'; // Importar o modelo corretamente
 import Image from 'next/image';

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import Image from 'next/image';
 
 export default function Home() {
     const [nomeFilhos, setNomeFilhos] = useState('');
@@ -114,7 +115,7 @@ export default function Home() {
             {qrCode && (
                 <div className="mt-8 text-center">
                     <h2 className="text-2xl font-bold">QR Code Gerado:</h2>
-                    <img src={qrCode} alt="QR Code" className="mt-4" />
+                    <Image src={qrCode} alt="QR Code" width={200} height={200} widhclassName="mt-4" />
                     <p className="mt-4">
                         <a href={timelineUrl} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
                             Ver Timeline
