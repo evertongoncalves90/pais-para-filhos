@@ -12,6 +12,7 @@ const Timeline = mongoose.models.Timeline || mongoose.model('Timeline', new mong
     dataNascimento: String,
     mensagem: String,
     imageUrls: [String],
+    youtubeUrl: String,
 }));
 
 export const config = {
@@ -58,6 +59,7 @@ export default async function handler(req, res) {
                 const nomeFilhos = Array.isArray(fields.nomeFilhos) ? fields.nomeFilhos[0] : fields.nomeFilhos;
                 const dataNascimento = Array.isArray(fields.dataNascimento) ? fields.dataNascimento[0] : fields.dataNascimento;
                 const mensagem = Array.isArray(fields.mensagem) ? fields.mensagem[0] : fields.mensagem;
+                const youtubeUrl = Array.isArray(fields.youtubeUrl) ? fields.youtubeUrl[0] : fields.youtubeUrl;
 
                 // Armazenar a timeline no banco de dados
                 const newTimeline = new Timeline({
@@ -65,6 +67,7 @@ export default async function handler(req, res) {
                     dataNascimento,
                     mensagem,
                     imageUrls,
+                    youtubeUrl,
                 });
 
                 const savedTimeline = await newTimeline.save();
