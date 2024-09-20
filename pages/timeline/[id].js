@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import mongoose from 'mongoose';
 import Timeline from '../../models/Timeline'; // Importar o modelo corretamente
+import Image from 'next/image';
 
 export async function getServerSideProps(context) {
     const { id } = context.params;
@@ -68,7 +69,7 @@ export default function TimelinePage({ timeline }) {
                 {/* Transição de imagens com fundo suave azul e verde */}
                 <div className="relative w-full max-w-lg h-96 mt-8 rounded-xl overflow-hidden shadow-md border-4 border-yellow-300 bg-gradient-to-r from-blue-400 via-green-300 to-yellow-400">
                     {imageUrls.map((url, index) => (
-                        <img
+                        <Image
                             key={index}
                             src={url}
                             alt={`Imagem ${index + 1}`}
