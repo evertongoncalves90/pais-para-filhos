@@ -1,16 +1,19 @@
 import { useState, useEffect } from 'react';
 import mongoose from 'mongoose';
-import Timeline from '../../models/Timeline'; // Importar o modelo corretamente
-import Image from 'next/image';
+import Timeline from '../../models/Timeline';
 
 export async function getServerSideProps(context) {
     const { id } = context.params;
 
-    // Conectar ao MongoDB
+    // Conectar ao MongoDB e buscar a timeline pelo ID
     await mongoose.connect(process.env.MONGODB_URI);
-
-    // Buscar a timeline no MongoDB
     const timeline = await Timeline.findById(id).lean();
+
+    if (!timeline) {
+        return {
+            notFound: true,
+        };
+    }
 
     return {
         props: {
@@ -19,34 +22,94 @@ export async function getServerSideProps(context) {
     };
 }
 
-export default function TimelinePage({ timeline }) {
-    const { nomeFilhos, dataNascimento, mensagem, imageUrls, youtubeUrl } = timeline; // Alterado de youtubeLink para youtubeUrl
-    const [timeElapsed, setTimeElapsed] = useState('');
-    const [currentImageIndex, setCurrentImageIndex] = useState(0);
+// Função para gerar emojis de coração caindo
+const generateHearts = (isAmor) => {
+    const hearts = [];
+    const emoji = isAmor ? '❤️' : '💙'; // Vermelho para "amor", azul para "amigo"
+    for (let i = 0; i < 50; i++) {
+        hearts.push(
+            <span
+                key={i}
+                className="heart"
+                style={{
+                    left: `${Math.random() * 100}%`, // Posição horizontal aleatória
+                    animationDelay: `${Math.random() * 2}s`, // Atraso aleatório para cada coração
+                    fontSize: `${Math.random() * 2 + 1}rem`, // Tamanho aleatório
+                }}
+            >
+                {emoji}
+            </span>
+        );
+    }
+    return hearts;
+};
 
-    // Calcular o tempo desde o nascimento
+export default function TimelinePage({ timeline }) {
+    const { dataRelacao, dataAmizade, mensagem, imageUrls, youtubeUrl, tipoRelacao } = timeline;
+    const [currentImageIndex, setCurrentImageIndex] = useState(0);
+    const [timeElapsed, setTimeElapsed] = useState('');
+    const [showHearts, setShowHearts] = useState(false); // Estado para controlar a exibição dos corações
+
+    // Definir o nome da timeline e a mensagem com base no formulário
+    const isAmor = tipoRelacao === 'amor'; // Baseado no valor salvo no formulário
+    //const nomeTimeline = isAmor ? nomeCasal : nomeAmigo;
+    const relacaoOuAmizade = isAmor ? 'Te amando a ❤️:' : 'Amizade para sempre, a: 👊';
+    const dataRelacionamento = isAmor ? dataRelacao : dataAmizade;
+
+
+    // Controla a exibição dos corações a cada 15 segundos
     useEffect(() => {
+        const heartInterval = setInterval(() => {
+            setShowHearts(true);
+            setTimeout(() => {
+                setShowHearts(false);
+            }, 4000); // Exibe os corações por 5 segundos
+        }, 24000); // Intervalo de 15 segundos
+
+        return () => clearInterval(heartInterval); // Limpa o intervalo quando o componente é desmontado
+    }, []);
+
+    // Lógica para calcular o tempo desde a data de relacionamento ou amizade
+    useEffect(() => {
+        /*if (!dataRelacionamento || isNaN(dataRelacionamento.getTime())) {
+            setTimeElapsed('Data inválida');
+            return;
+        }*/
+
+        // Certificar-se de que a dataRelacionamento é um objeto Date
+        const dateObj = new Date(dataRelacionamento);
+
+        // Verificar se a data é válida
+        if (isNaN(dateObj.getTime())) {
+            setTimeElapsed('Data inválida');
+            return;
+        }
+
         const calculateTimeElapsed = () => {
-            const birthDate = new Date(dataNascimento);
-            const currentDate = new Date();
-            const timeDiff = currentDate - birthDate;
+            const now = new Date();
+            const timeDiff = now - dateObj;
 
             const years = Math.floor(timeDiff / (1000 * 60 * 60 * 24 * 365.25));
             const months = Math.floor(
                 (timeDiff % (1000 * 60 * 60 * 24 * 365.25)) / (1000 * 60 * 60 * 24 * 30)
             );
             const days = Math.floor((timeDiff % (1000 * 60 * 60 * 24 * 30)) / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000);
 
-            setTimeElapsed(`${years} anos, ${months} meses, ${days} dias`);
+            setTimeElapsed(`${years} anos, ${months} meses, ${days} dias, ${hours}h ${minutes}m ${seconds}s`);
+
+            //setTimeElapsed(`${years} anos, ${months} meses, ${days} dias`);
         };
 
         calculateTimeElapsed();
         const timer = setInterval(calculateTimeElapsed, 1000);
 
         return () => clearInterval(timer);
-    }, [dataNascimento]);
+    }, [dataRelacionamento]);
 
-    // Lógica para alternar as imagens automaticamente com transições suaves
+    // Lógica para alternar as imagens automaticamente
     useEffect(() => {
         const interval = setInterval(() => {
             setCurrentImageIndex((prevIndex) => (prevIndex + 1) % imageUrls.length);
@@ -55,54 +118,81 @@ export default function TimelinePage({ timeline }) {
         return () => clearInterval(interval);
     }, [imageUrls]);
 
-    // Extrair o ID do vídeo do YouTube
-    const youtubeVideoId = youtubeUrl ? youtubeUrl.split('v=')[1].split('&')[0] : null;
+    // Função para extrair o ID do vídeo do YouTube
+    const getYoutubeVideoId = (url) => {
+        const regex = /[?&]v=([^&#]*)/;
+        const match = url.match(regex);
+        return match ? match[1] : null;
+    };
 
     return (
-        <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-blue-200 to-green-200">
-            <div className="p-6 bg-gradient-to-r from-blue-300 via-green-200 to-yellow-300 rounded-3xl shadow-xl w-full max-w-lg">
-                {/* Cabeçalho com nome do filho */}
-                <h1 className="text-4xl font-extrabold text-blue-600 mb-4 text-center border-b-2 border-blue-400 pb-2">
-                    🎁 Timeline de {nomeFilhos}
-                </h1>
-
-                {/* Transição de imagens com fundo suave azul e verde */}
-                <div className="relative w-full max-w-lg h-96 mt-8 rounded-xl overflow-hidden shadow-md border-4 border-yellow-300 bg-gradient-to-r from-blue-400 via-green-300 to-yellow-400">
-                    {imageUrls.map((url, index) => (
-                        <Image
-                            key={index}
-                            src={url}
-                            alt={`Imagem ${index + 1}`}
-                            className={`absolute top-0 left-0 w-full h-full object-contain transition-opacity duration-1000 ease-in-out ${index === currentImageIndex ? 'opacity-100' : 'opacity-0'}`}
-                        />
-                    ))}
+        <div className="min-h-screen flex items-center justify-center bg-[#0a0a1a] p-6">
+            {/* Container com borda branca e responsividade */}
+            <div
+                className="p-8 bg-gray-900 text-white rounded-3xl shadow-xl border-4 border-white"
+                style={{
+                    width: '100%',
+                    maxWidth: '80vw',
+                    minWidth: '300px',  // Define um tamanho mínimo de largura
+                    maxWidth: '1200px',  // Define um tamanho máximo de largura
+                    height: 'auto'
+                }}
+            >
+                {/* Imagens com transição automática */}
+                <div
+                    className="relative w-full rounded-lg overflow-hidden shadow-inner"
+                    style={{
+                        height: '60vw',           // Altura com base na largura da tela para manter proporção
+                        minHeight: '400px',        // Altura mínima para garantir que as imagens não fiquem pequenas
+                        maxHeight: '700px'         // Altura máxima para evitar que a caixa fique muito grande
+                    }}
+                >
+                    {imageUrls.length > 0 ? (
+                        imageUrls.map((url, index) => (
+                            <img
+                                key={index}
+                                src={url}
+                                alt={`Imagem ${index + 1}`}
+                                className={`absolute top-0 left-0 w-full h-full object-cover transition-opacity duration-3000 ease-in-out ${index === currentImageIndex ? 'opacity-100' : 'opacity-0'}`}
+                            />
+                        ))
+                    ) : (
+                        <p className="text-center text-gray-400">Adicione fotos para visualizar</p>
+                    )}
                 </div>
 
-                {/* Reproduzir vídeo do YouTube */}
-                {youtubeVideoId && (
-                    <div className="mt-8 w-full max-w-lg">
+                {/* Exibição do tempo de relacionamento ou amizade */}
+                <div className="text-center mt-4 text-white">
+                    <h2 className="text-2xl font-bold mb-2">{relacaoOuAmizade}</h2>
+                    <p className="text-lg">{timeElapsed}</p>
+                </div>
+
+                <hr className="my-4 border-gray-700" />
+
+                {/* Mensagem personalizada */}
+                <div className="text-center text-gray-400">
+                    <p className="text-lg italic">💌 {mensagem || 'Mensagem não fornecida'}</p>
+                </div>
+
+                {/* Reproduzir o vídeo do YouTube */}
+                {youtubeUrl && (
+                    <div className="mt-6">
                         <iframe
                             width="0"
                             height="0"
-                            src={`https://www.youtube.com/embed/${youtubeVideoId}?autoplay=1&controls=0&showinfo=0&loop=1&playlist=${youtubeVideoId}`}
+                            src={`https://www.youtube.com/embed/${getYoutubeVideoId(youtubeUrl)}?autoplay=1&loop=1&playlist=${getYoutubeVideoId(youtubeUrl)}`}
+                            title="YouTube video player"
                             frameBorder="0"
-                            allow="autoplay"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                             allowFullScreen
                         ></iframe>
                     </div>
                 )}
-
-                {/* Contador de tempo de paternidade */}
-                <div className="mt-8 text-center p-4 bg-gradient-to-r from-yellow-300 to-green-300 rounded-lg shadow-inner">
-                    <h2 className="text-2xl font-bold text-green-700 mb-2">⏳ Tempo de Paternidade</h2>
-                    <p className="text-xl text-gray-700">{timeElapsed}</p>
-                </div>
-
-                {/* Mensagem personalizada */}
-                <div className="mt-6 p-4 bg-blue-100 rounded-lg shadow-lg text-center">
-                    <p className="text-lg font-semibold text-green-600 italic">💌 {mensagem}</p>
-                </div>
             </div>
+
+            {/* Corações caindo, exibidos somente se showHearts for true */}
+            {showHearts && <div className="hearts-container">{generateHearts(isAmor)}</div>}
         </div>
     );
+
 }

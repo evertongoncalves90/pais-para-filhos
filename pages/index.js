@@ -1,6 +1,29 @@
 import { useState, useEffect, useRef } from 'react';
-import Image from 'next/image';
-import { FaUpload } from 'react-icons/fa'; // Importa ícone de upload
+//import Image from 'next/image';
+import { FaUpload } from 'react-icons/fa';
+import QRCode from 'react-qr-code'; // Atualizada para usar 'react-qr-code'
+
+// Função para gerar emojis de coração caindo
+const generateHearts = (isAmor) => {
+    const hearts = [];
+    const emoji = isAmor ? '❤️' : '💙'; // Vermelho para "amor", azul para "amigo"
+    for (let i = 0; i < 50; i++) {
+        hearts.push(
+            <span
+                key={i}
+                className="heart"
+                style={{
+                    left: `${Math.random() * 100}%`, // Posição horizontal aleatória
+                    animationDelay: `${Math.random() * 2}s`, // Atraso aleatório para cada coração
+                    fontSize: `${Math.random() * 2 + 1}rem`, // Tamanho aleatório
+                }}
+            >
+                {emoji}
+            </span>
+        );
+    }
+    return hearts;
+};
 
 export default function Home() {
     const [activeTab, setActiveTab] = useState('amor');
@@ -10,15 +33,27 @@ export default function Home() {
     const [nomeAmigo, setNomeAmigo] = useState('');
     const [dataAmizade, setDataAmizade] = useState('');
     const [mensagem, setMensagem] = useState('');
-    const [fotos, setFotos] = useState([]); // Mantém as fotos selecionadas
-    const [previewUrl, setPreviewUrl] = useState(null); // URL da imagem pré-visualizada
-    const [youtubeUrl, setYoutubeUrl] = useState(''); // Campo para URL do YouTube
-    //const [qrCode, setQrCode] = useState(null);
-    //const [timelineUrl, setTimelineUrl] = useState(null);
+    const [fotos, setFotos] = useState([]);
+    const [previewUrl, setPreviewUrl] = useState(null);
+    const [youtubeUrl, setYoutubeUrl] = useState('');
+    const [qrCodeUrl, setQrCodeUrl] = useState(null); // URL gerada para o QR Code
+    const [, setTimelineId] = useState(null); // ID da timeline gerado
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [timeElapsed, setTimeElapsed] = useState('');
-
     const formRef = useRef(null);
+    const [showHearts, setShowHearts] = useState(false); // Estado para controlar a exibição dos corações
+
+    // Controla a exibição dos corações a cada 15 segundos
+    useEffect(() => {
+        const heartInterval = setInterval(() => {
+            setShowHearts(true);
+            setTimeout(() => {
+                setShowHearts(false);
+            }, 4000); // Exibe os corações por 5 segundos
+        }, 24000); // Intervalo de 15 segundos
+
+        return () => clearInterval(heartInterval); // Limpa o intervalo quando o componente é desmontado
+    }, []);
 
     // Atualiza a URL de pré-visualização da imagem quando as fotos mudam
     useEffect(() => {
@@ -41,35 +76,50 @@ export default function Home() {
         }
     }, [fotos]);
 
+    // Calcula o tempo desde o início do relacionamento ou amizade
     useEffect(() => {
-        if (activeTab === 'amor' && dataRelacao) {
-            const calculateTimeElapsed = () => {
-                const startTime = new Date(`${dataRelacao} ${horaRelacao}`);
-                const now = new Date();
-                const timeDiff = now - startTime;
+        const calculateTimeElapsed = () => {
+            let startDate;
+            if (activeTab === 'amor') {
+                startDate = new Date(`${dataRelacao} ${horaRelacao}`);
+            } else {
+                startDate = new Date(dataAmizade);
+            }
+            const currentDate = new Date();
+            const timeDiff = currentDate - startDate;
 
-                const years = Math.floor(timeDiff / (1000 * 60 * 60 * 24 * 365.25));
-                const months = Math.floor(
-                    (timeDiff % (1000 * 60 * 60 * 24 * 365.25)) / (1000 * 60 * 60 * 24 * 30)
-                );
-                const days = Math.floor((timeDiff % (1000 * 60 * 60 * 24 * 30)) / (1000 * 60 * 60 * 24));
-                const hours = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
-                const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000);
+            const years = Math.floor(timeDiff / (1000 * 60 * 60 * 24 * 365.25));
+            const months = Math.floor(
+                (timeDiff % (1000 * 60 * 60 * 24 * 365.25)) / (1000 * 60 * 60 * 24 * 30)
+            );
+            const days = Math.floor((timeDiff % (1000 * 60 * 60 * 24 * 30)) / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000);
 
-                setTimeElapsed(`${years} anos, ${months} meses, ${days} dias, ${hours}h ${minutes}m ${seconds}s`);
-            };
+            setTimeElapsed(`${years} anos, ${months} meses, ${days} dias, ${hours}h ${minutes}m ${seconds}s`);
+        };
 
+        if ((activeTab === 'amor' && dataRelacao && horaRelacao) || (activeTab === 'amigo' && dataAmizade)) {
             calculateTimeElapsed();
             const timer = setInterval(calculateTimeElapsed, 1000);
 
             return () => clearInterval(timer);
         }
-    }, [dataRelacao, horaRelacao, activeTab]);
+    }, [dataRelacao, horaRelacao, dataAmizade, activeTab]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
 
+        // Gerar ID único da timeline
+        const generatedId = `timeline-${Date.now()}`;
+        setTimelineId(generatedId);
+
+        // Gerar URL da timeline
+        const timelineUrl = `http://localhost:3000/timeline/${generatedId}`;
+        setQrCodeUrl(timelineUrl); // Define a URL do QR Code
+
+        // Montar os dados do formulário para enviar
         const formData = new FormData();
         for (let i = 0; i < fotos.length; i++) {
             formData.append('fotos', fotos[i]);
@@ -86,16 +136,21 @@ export default function Home() {
             formData.append('dataAmizade', dataAmizade);
         }
 
+        // Adicionando o tipo de relação
+        formData.append('tipoRelacao', activeTab === 'amor' ? 'amor' : 'amigo');
+
         try {
+            // Enviar os dados para o servidor (supõe que você tem um endpoint `/api/upload`)
             const res = await fetch('/api/upload', {
                 method: 'POST',
                 body: formData,
             });
 
             if (res.ok) {
-                const { qrCode, timelineUrl } = await res.json();
-                setQrCode(qrCode);
-                setTimelineUrl(timelineUrl);
+                // Supondo que a API retorna a URL final da timeline
+                const responseData = await res.json();
+                const finalTimelineUrl = responseData.timelineUrl || timelineUrl;
+                setQrCodeUrl(finalTimelineUrl);
             } else {
                 console.error('Erro ao enviar as imagens:', res.statusText);
             }
@@ -103,6 +158,7 @@ export default function Home() {
             console.error('Erro ao fazer o upload:', error);
         }
     };
+
 
     // Extrai o ID do vídeo do YouTube da URL
     const getYoutubeVideoId = (url) => {
@@ -118,6 +174,7 @@ export default function Home() {
     return (
         <div className={`min-h-screen p-6 ${activeTab === 'amor' ? 'bg-pink-100' : 'bg-blue-100'}`}>
             {/* Título e descrição centralizados */}
+            {/*<div className="bg-gray-800">*/}
             <div className="text-center mb-10 max-w-3xl mx-auto">
                 {activeTab === 'amor' ? (
                     <>
@@ -127,7 +184,7 @@ export default function Home() {
                         <p className="text-lg text-pink-600 font-poppins font-outline" style={{ textShadow: '2px 2px 4px rgba(0, 0, 0, 0.3)' }}>
                             Crie um contador dinâmico que celebra cada momento do seu relacionamento! Basta preencher o formulário e receberá um site exclusivo, com um QR Code para compartilhar com quem você ama.✨
                         </p>
-                        <br></br>
+                        <br />
                         <p className="text-lg text-pink-600 font-poppins font-outline" style={{ textShadow: '2px 2px 4px rgba(0, 0, 0, 0.3)' }}>
                             Transforme suas memórias em um tributo emocionante que fica sempre à vista! 💖
                         </p>
@@ -143,6 +200,7 @@ export default function Home() {
                     </>
                 )}
             </div>
+            {/*</div>
 
             {/* Formulário e prévia lado a lado */}
             <div className="flex flex-col lg:flex-row lg:space-x-10 items-center lg:items-start justify-center" ref={formRef}>
@@ -250,7 +308,7 @@ export default function Home() {
                             <textarea
                                 id="mensagem"
                                 value={mensagem}
-                                placeholder="Capricha na mensagem hem? &#128525; &#128526;"
+                                placeholder="Capricha na mensagem hem? 😊 😎"
                                 onChange={(e) => setMensagem(e.target.value)}
                                 required
                                 className={`mt-1 block w-full p-2 border border-gray-300 rounded-md ${activeTab === 'amor' ? 'bg-pink-100' : 'bg-blue-100'}`}
@@ -299,6 +357,12 @@ export default function Home() {
                             Criar minha Timeline
                         </button>
                     </form>
+                    {/* QRCode Renderizado */}
+                    {qrCodeUrl && (
+                        <div className="flex justify-center mt-8">
+                            <QRCode value={qrCodeUrl} size={200} />
+                        </div>
+                    )}
                 </div>
 
                 {/* Prévia da Timeline */}
@@ -306,7 +370,8 @@ export default function Home() {
                     <h2 className="text-center text-lg font-bold mb-4 text-white">Veja como vai ficar</h2>
                     <div className="relative h-64 w-full bg-gray-800 rounded-lg overflow-hidden shadow-inner">
                         {fotos.length > 0 && previewUrl ? (
-                            <Image
+                            // Para imagens locais
+                            <img
                                 src={previewUrl}
                                 alt="Preview"
                                 className="w-full h-full object-contain"
@@ -314,10 +379,12 @@ export default function Home() {
                         ) : (
                             <p className="text-center text-gray-400">Adicione fotos para visualizar</p>
                         )}
+                        {/* Corações caindo, exibidos somente se showHearts for true */}
+                        {showHearts && <div className="hearts-container">{generateHearts(activeTab === 'amor')}</div>}
                     </div>
                     <div className="text-center mt-4 text-white">
                         <p className="font-semibold">
-                            {activeTab === 'amor' ? '❤️ Te amando a:' : 'Amizade para sempre, a:'}
+                            {activeTab === 'amor' ? '❤️ Te amando a:' : '👊 Amizade para sempre, a:'}
                         </p>
                         <p className="mt-2 text-gray-300">{timeElapsed || 'Aguardando data...'}</p>
                     </div>
@@ -325,6 +392,14 @@ export default function Home() {
                     <div className="text-center text-gray-400">
                         <p className="italic">{mensagem || 'Sua mensagem aparecerá aqui'}</p>
                     </div>
+
+                    {/* Exibir QR Code */}
+                    {qrCodeUrl && (
+                        <div className="mt-6 flex flex-col items-center">
+                            <QRCode value={qrCodeUrl} size={150} />
+                            <p className="mt-2 text-white">Escaneie para ver sua timeline</p>
+                        </div>
+                    )}
 
                     {/* Se o campo youtubeUrl estiver preenchido, exibe o iframe com autoplay */}
                     {youtubeUrl && (
@@ -340,14 +415,6 @@ export default function Home() {
                             ></iframe>
                         </div>
                     )}
-
-                    {/* Segundo botão de "Criar minha Timeline" */}
-                    <button
-                        onClick={handleSubmit}
-                        className={`w-full p-3 mt-4 rounded-lg ${activeTab === 'amor' ? 'bg-pink-700' : 'bg-blue-500'} text-white`}
-                    >
-                        Criar minha Timeline
-                    </button>
                 </div>
             </div>
 
