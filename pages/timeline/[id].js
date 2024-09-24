@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import mongoose from 'mongoose';
 import Timeline from '../../models/Timeline';
-import { FaYoutube } from 'react-icons/fa'; // Importa o ícone do YouTube
+//import { FaYoutube } from 'react-icons/fa'; // Importa o ícone do YouTube
 
 export async function getServerSideProps(context) {
     const { id } = context.params;
