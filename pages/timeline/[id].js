@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import mongoose from 'mongoose';
 import Timeline from '../../models/Timeline';
+import { FaYoutube } from 'react-icons/fa'; // Importa o ícone do YouTube
 
 export async function getServerSideProps(context) {
     const { id } = context.params;
@@ -49,6 +50,7 @@ export default function TimelinePage({ timeline }) {
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [timeElapsed, setTimeElapsed] = useState('');
     const [showHearts, setShowHearts] = useState(false); // Estado para controlar a exibição dos corações
+    const [showPlayer, setShowPlayer] = useState(false); // Controle para exibir ou ocultar o player de áudio
 
     // Definir o nome da timeline e a mensagem com base no formulário
     const isAmor = tipoRelacao === 'amor'; // Baseado no valor salvo no formulário
@@ -120,9 +122,21 @@ export default function TimelinePage({ timeline }) {
 
     // Função para extrair o ID do vídeo do YouTube
     const getYoutubeVideoId = (url) => {
-        const regex = /[?&]v=([^&#]*)/;
-        const match = url.match(regex);
-        return match ? match[1] : null;
+        let videoId = null;
+
+        // Verifica se a URL está no formato "youtu.be"
+        const shortUrlMatch = url.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/);
+        if (shortUrlMatch) {
+            videoId = shortUrlMatch[1];
+        } else {
+            // Verifica se a URL está no formato padrão do YouTube
+            const standardUrlMatch = url.match(/[?&]v=([a-zA-Z0-9_-]{11})/);
+            if (standardUrlMatch) {
+                videoId = standardUrlMatch[1];
+            }
+        }
+
+        return videoId;
     };
 
     return (
@@ -137,7 +151,30 @@ export default function TimelinePage({ timeline }) {
                     maxWidth: '1200px',  // Define um tamanho máximo de largura
                     height: 'auto'
                 }}
+
             >
+                {/* Ícone do YouTube para tocar a música */}
+                {youtubeUrl && (
+                    <div className="mb-4 text-center">
+                        <button onClick={() => setShowPlayer(true)} className="bg-gray-700 p-1 rounded-full">
+                            <FaYoutube size={40} className="text-white" />
+                        </button>
+                    </div>
+                )}
+
+                {/* Exibir o player oculto quando o usuário clicar */}
+                {showPlayer && youtubeUrl && (
+                    <iframe
+                        width="0"
+                        height="0"
+                        src={`https://www.youtube.com/embed/${getYoutubeVideoId(youtubeUrl)}?autoplay=1&loop=1&playlist=${getYoutubeVideoId(youtubeUrl)}`}
+                        title="YouTube audio player"
+                        frameBorder="0"
+                        allow="autoplay; encrypted-media"
+                        allowFullScreen
+                    ></iframe>
+                )}
+
                 {/* Imagens com transição automática */}
                 <div
                     className="relative w-full rounded-lg overflow-hidden shadow-inner"
@@ -171,28 +208,15 @@ export default function TimelinePage({ timeline }) {
 
                 {/* Mensagem personalizada */}
                 <div className="text-center text-gray-400">
-                    <p className="text-lg italic">💌 {mensagem || 'Mensagem não fornecida'}</p>
+                    <p className="text-lg italic" style={{ whiteSpace: 'pre-line' }}>
+                        💌 {mensagem || 'Mensagem não fornecida'}
+                    </p>
                 </div>
 
-                {/* Reproduzir o vídeo do YouTube */}
-                {youtubeUrl && (
-                    <div className="mt-6">
-                        <iframe
-                            width="0"
-                            height="0"
-                            src={`https://www.youtube.com/embed/${getYoutubeVideoId(youtubeUrl)}?autoplay=1&loop=1&playlist=${getYoutubeVideoId(youtubeUrl)}`}
-                            title="YouTube video player"
-                            frameBorder="0"
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                            allowFullScreen
-                        ></iframe>
-                    </div>
-                )}
             </div>
 
             {/* Corações caindo, exibidos somente se showHearts for true */}
             {showHearts && <div className="hearts-container">{generateHearts(isAmor)}</div>}
         </div>
     );
-
 }

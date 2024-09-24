@@ -1,7 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 //import Image from 'next/image';
-import { FaUpload } from 'react-icons/fa';
-import QRCode from 'react-qr-code'; // Atualizada para usar 'react-qr-code'
+import { FaUpload, FaWhatsapp, FaEnvelope, FaInstagram } from 'react-icons/fa';
+//import QRCode from 'react-qr-code'; // Atualizada para usar 'react-qr-code'
+import { loadStripe } from '@stripe/stripe-js';
+
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLIC_KEY);
 
 // Função para gerar emojis de coração caindo
 const generateHearts = (isAmor) => {
@@ -36,12 +39,13 @@ export default function Home() {
     const [fotos, setFotos] = useState([]);
     const [previewUrl, setPreviewUrl] = useState(null);
     const [youtubeUrl, setYoutubeUrl] = useState('');
-    const [qrCodeUrl, setQrCodeUrl] = useState(null); // URL gerada para o QR Code
-    const [, setTimelineId] = useState(null); // ID da timeline gerado
+    //const [qrCodeUrl, setQrCodeUrl] = useState(null); // URL gerada para o QR Code
+    //const [, setTimelineId] = useState(null); // ID da timeline gerado
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [timeElapsed, setTimeElapsed] = useState('');
     const formRef = useRef(null);
     const [showHearts, setShowHearts] = useState(false); // Estado para controlar a exibição dos corações
+    const [loading, setLoading] = useState(false); // Adiciona o estado de loading
 
     // Controla a exibição dos corações a cada 15 segundos
     useEffect(() => {
@@ -108,71 +112,116 @@ export default function Home() {
         }
     }, [dataRelacao, horaRelacao, dataAmizade, activeTab]);
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-
-        // Gerar ID único da timeline
-        const generatedId = `timeline-${Date.now()}`;
-        setTimelineId(generatedId);
-
-        // Gerar URL da timeline
-        const timelineUrl = `http://localhost:3000/timeline/${generatedId}`;
-        setQrCodeUrl(timelineUrl); // Define a URL do QR Code
-
-        // Montar os dados do formulário para enviar
-        const formData = new FormData();
-        for (let i = 0; i < fotos.length; i++) {
-            formData.append('fotos', fotos[i]);
-        }
-
-        formData.append('mensagem', mensagem);
-        formData.append('youtubeUrl', youtubeUrl);
-
-        if (activeTab === 'amor') {
-            formData.append('nomeCasal', nomeCasal);
-            formData.append('dataRelacao', `${dataRelacao} ${horaRelacao}`);
-        } else {
-            formData.append('nomeAmigo', nomeAmigo);
-            formData.append('dataAmizade', dataAmizade);
-        }
-
-        // Adicionando o tipo de relação
-        formData.append('tipoRelacao', activeTab === 'amor' ? 'amor' : 'amigo');
-
-        try {
-            // Enviar os dados para o servidor (supõe que você tem um endpoint `/api/upload`)
-            const res = await fetch('/api/upload', {
-                method: 'POST',
-                body: formData,
-            });
-
-            if (res.ok) {
-                // Supondo que a API retorna a URL final da timeline
-                const responseData = await res.json();
-                const finalTimelineUrl = responseData.timelineUrl || timelineUrl;
-                setQrCodeUrl(finalTimelineUrl);
-            } else {
-                console.error('Erro ao enviar as imagens:', res.statusText);
-            }
-        } catch (error) {
-            console.error('Erro ao fazer o upload:', error);
-        }
-    };
-
-
     // Extrai o ID do vídeo do YouTube da URL
     const getYoutubeVideoId = (url) => {
-        const regex = /[?&]v=([^&#]*)/;
-        const match = url.match(regex);
-        return match ? match[1] : null;
+        let videoId = null;
+
+        // Verifica se a URL está no formato "youtu.be"
+        const shortUrlMatch = url.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/);
+        if (shortUrlMatch) {
+            videoId = shortUrlMatch[1];
+        } else {
+            // Verifica se a URL está no formato padrão do YouTube
+            const standardUrlMatch = url.match(/[?&]v=([a-zA-Z0-9_-]{11})/);
+            if (standardUrlMatch) {
+                videoId = standardUrlMatch[1];
+            }
+        }
+
+        return videoId;
     };
 
     const scrollToForm = () => {
         formRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
 
+    const handlePayment = async (e) => {
+        e.preventDefault();
+        setLoading(true); // Define o estado de loading como verdadeiro
+
+        try {
+
+            // Montar os dados do formulário para enviar
+            const formData = new FormData();
+            for (let i = 0; i < fotos.length; i++) {
+                formData.append('fotos', fotos[i]);
+            }
+
+            formData.append('mensagem', mensagem);
+            formData.append('youtubeUrl', youtubeUrl);
+
+            if (activeTab === 'amor') {
+                formData.append('nomeCasal', nomeCasal);
+                formData.append('dataRelacao', `${dataRelacao} ${horaRelacao}`);
+            } else {
+                formData.append('nomeAmigo', nomeAmigo);
+                formData.append('dataAmizade', dataAmizade);
+            }
+
+            // Adicionando o tipo de relação
+            formData.append('tipoRelacao', activeTab === 'amor' ? 'amor' : 'amigo');
+
+            // Enviar os dados para o servidor (supõe que você tem um endpoint `/api/upload`)
+            const uploadResponse = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData,
+            });
+
+            if (!uploadResponse.ok) {
+                throw new Error('Erro ao enviar os dados do formulário.');
+            }
+
+            // Receber a URL da timeline criada ou usar a URL local
+            const { timelineId } = await uploadResponse.json(); // Receba o `timelineId` gerado pelo MongoDB
+
+            if (!timelineId) {
+                throw new Error('Erro ao gerar o timelineId');
+            }
+
+            // Faz a requisição para criar a sessão de pagamento no Stripe
+            const paymentResponse = await fetch('/api/checkout_sessions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    nomeCasal,
+                    dataRelacao,
+                    nomeAmigo,
+                    dataAmizade,
+                    mensagem,
+                    tipoRelacao: activeTab === 'amor' ? 'amor' : 'amigo',
+                    timelineId, // Enviar o timelineId para o servidor
+                }),
+            });
+
+            const { sessionId } = await paymentResponse.json();
+
+            if (sessionId) {
+                const stripe = await stripePromise;
+                const { error } = await stripe.redirectToCheckout({ sessionId });
+
+                if (error) {
+                    console.error('Erro ao redirecionar para o Checkout:', error);
+                    setLoading(false); // Remove o loading em caso de erro
+                }
+            } else {
+                console.error('Erro ao criar a sessão de pagamento');
+                setLoading(false); // Remove o loading em caso de erro
+            }
+        } catch (error) {
+            console.error('Erro ao processar a geração da página e o pagamento:', error);
+            setLoading(false); // Remove o loading em caso de erro
+        }
+    };
+
     return (
         <div className={`min-h-screen p-6 ${activeTab === 'amor' ? 'bg-pink-100' : 'bg-blue-100'}`}>
+
+            <header className="flex flex-col items-center justify-center mb-6">
+                <h1 className="text-lg font-bold text-pink-900 font-dancing-script">Surprise for Love</h1>
+            </header>
+
             {/* Título e descrição centralizados */}
             {/*<div className="bg-gray-800">*/}
             <div className="text-center mb-10 max-w-3xl mx-auto">
@@ -222,7 +271,7 @@ export default function Home() {
                     </div>
 
                     <form
-                        onSubmit={handleSubmit}
+                        //onSubmit={handleSubmit}
                         className={`w-full p-8 rounded-lg shadow border-4 border-white ${activeTab === 'amor' ? 'bg-pink-200' : 'bg-blue-200'} font-poppins`}
                     >
                         {/* Campos de formulário */}
@@ -239,6 +288,7 @@ export default function Home() {
                                         value={nomeCasal}
                                         onChange={(e) => setNomeCasal(e.target.value)}
                                         required
+                                        disabled={loading}
                                         className="mt-1 block w-full p-2 border border-gray-300 rounded-md bg-pink-100"
                                     />
                                 </div>
@@ -252,6 +302,7 @@ export default function Home() {
                                         value={dataRelacao}
                                         onChange={(e) => setDataRelacao(e.target.value)}
                                         required
+                                        disabled={loading}
                                         className="mt-1 block w-full p-2 border border-gray-300 rounded-md bg-pink-100"
                                     />
                                 </div>
@@ -265,6 +316,7 @@ export default function Home() {
                                         value={horaRelacao}
                                         onChange={(e) => setHoraRelacao(e.target.value)}
                                         required
+                                        disabled={loading}
                                         className="mt-1 block w-full p-2 border border-gray-300 rounded-md bg-pink-100"
                                     />
                                 </div>
@@ -282,6 +334,7 @@ export default function Home() {
                                         placeholder="Ex: Julia"
                                         onChange={(e) => setNomeAmigo(e.target.value)}
                                         required
+                                        disabled={loading}
                                         className="mt-1 block w-full p-2 border border-gray-300 rounded-md bg-blue-100"
                                     />
                                 </div>
@@ -295,6 +348,7 @@ export default function Home() {
                                         value={dataAmizade}
                                         onChange={(e) => setDataAmizade(e.target.value)}
                                         required
+                                        disabled={loading}
                                         className="mt-1 block w-full p-2 border border-gray-300 rounded-md bg-blue-100"
                                     />
                                 </div>
@@ -311,6 +365,8 @@ export default function Home() {
                                 placeholder="Capricha na mensagem hem? 😊 😎"
                                 onChange={(e) => setMensagem(e.target.value)}
                                 required
+                                disabled={loading}
+                                rows="6"  // Ajusta o número de linhas visíveis no textarea
                                 className={`mt-1 block w-full p-2 border border-gray-300 rounded-md ${activeTab === 'amor' ? 'bg-pink-100' : 'bg-blue-100'}`}
                             />
                         </div>
@@ -330,6 +386,7 @@ export default function Home() {
                                 type="file"
                                 id="fotos"
                                 multiple
+                                disabled={loading}
                                 accept="image/*"
                                 onChange={(e) => setFotos(Array.from(e.target.files))}
                                 className="hidden"
@@ -346,61 +403,75 @@ export default function Home() {
                                 placeholder="https://www.youtube.com/watch?v=Ftnki5njNbw&ab_channel=HenriqueeDiegoVEVO"
                                 value={youtubeUrl}
                                 onChange={(e) => setYoutubeUrl(e.target.value)}
+                                disabled={loading}
                                 className={`mt-1 block w-full p-2 border border-gray-300 rounded-md ${activeTab === 'amor' ? 'bg-pink-100' : 'bg-blue-100'}`}
                             />
                         </div>
 
                         <button
-                            type="submit"
+                            //type="submit"
+                            onClick={handlePayment}
                             className={`w-full text-white p-3 rounded-lg ${activeTab === 'amor' ? 'bg-pink-600' : 'bg-blue-600'}`}
+                            disabled={loading}  // Desabilitar o botão durante o loading
                         >
-                            Criar minha Timeline
+                            {loading ? 'Sua página personalizada está sendo criada, aguarde...' : 'Criar minha Página personalizada'}
                         </button>
-                    </form>
-                    {/* QRCode Renderizado */}
-                    {qrCodeUrl && (
-                        <div className="flex justify-center mt-8">
-                            <QRCode value={qrCodeUrl} size={200} />
+                        <div className="p-4 rounded-lg mb-4 lg:mb-0">
+                            <p className="text-gray-800 font-bold text-lg">por R$ 21,90 &#128176;</p>
                         </div>
-                    )}
+                    </form>
                 </div>
 
                 {/* Prévia da Timeline */}
-                <div className="flex-1 mt-20 lg:mt-w-full lg:w-5/12 p-8 bg-gray-900 rounded-lg shadow-lg lg:ml-10 shadow-lg p-6 max-w-md w-full">
-                    <h2 className="text-center text-lg font-bold mb-4 text-white">Veja como vai ficar</h2>
-                    <div className="relative h-64 w-full bg-gray-800 rounded-lg overflow-hidden shadow-inner">
-                        {fotos.length > 0 && previewUrl ? (
-                            // Para imagens locais
-                            <img
-                                src={previewUrl}
-                                alt="Preview"
-                                className="w-full h-full object-contain"
-                            />
-                        ) : (
-                            <p className="text-center text-gray-400">Adicione fotos para visualizar</p>
-                        )}
-                        {/* Corações caindo, exibidos somente se showHearts for true */}
-                        {showHearts && <div className="hearts-container">{generateHearts(activeTab === 'amor')}</div>}
-                    </div>
-                    <div className="text-center mt-4 text-white">
-                        <p className="font-semibold">
-                            {activeTab === 'amor' ? '❤️ Te amando a:' : '👊 Amizade para sempre, a:'}
-                        </p>
-                        <p className="mt-2 text-gray-300">{timeElapsed || 'Aguardando data...'}</p>
-                    </div>
-                    <hr className="my-4 border-gray-500" />
-                    <div className="text-center text-gray-400">
-                        <p className="italic">{mensagem || 'Sua mensagem aparecerá aqui'}</p>
-                    </div>
+                <div className="flex-1 mt-20 lg:mt-10 shadow-lg p-8 max-w-md w-full">
+                    <div
+                        className="p-8 bg-gray-900 text-white rounded-3xl shadow-xl "
+                        style={{
+                            width: '100%',
+                            minWidth: '300px',
+                            height: 'auto',
+                        }}
+                    >
+                        <h2 className="text-center text-lg font-bold mb-4 text-white">Veja como vai ficar</h2>
 
-                    {/* Exibir QR Code */}
-                    {qrCodeUrl && (
-                        <div className="mt-6 flex flex-col items-center">
-                            <QRCode value={qrCodeUrl} size={150} />
-                            <p className="mt-2 text-white">Escaneie para ver sua timeline</p>
+                        <div
+                            className="relative w-full rounded-lg overflow-hidden shadow-inner border-2 border-white"
+                            style={{
+                                height: '40vw', // Mantenha altura ajustável conforme necessário
+                                minHeight: '250px',
+                                maxHeight: '400px',
+                            }}
+                        >
+                            {fotos.length > 0 && previewUrl ? (
+                                // Para imagens locais
+                                <img
+                                    src={previewUrl}
+                                    alt="Preview"
+                                    className="absolute top-0 left-0 w-full h-full object-cover transition-opacity duration-3000 ease-in-out"
+                                />
+                            ) : (
+                                <p className="text-center text-gray-400">Adicione fotos para visualizar</p>
+                            )}
+
+                            {/* Corações caindo, exibidos somente se showHearts for true */}
+                            {showHearts && <div className="hearts-container">{generateHearts(activeTab === 'amor')}</div>}
                         </div>
-                    )}
 
+                        <div className="text-center mt-4 text-white">
+                            <p className="font-semibold">
+                                {activeTab === 'amor' ? '❤️ Te amando a:' : '👊 Amizade para sempre, a:'}
+                            </p>
+                            <p className="mt-2 text-gray-300">{timeElapsed || 'Aguardando data...'}</p>
+                        </div>
+
+                        <hr className="my-4 border-gray-700" />
+
+                        <div className="text-center text-gray-400">
+                            <p className="italic text-lg" style={{ whiteSpace: 'pre-line' }}>
+                                {mensagem || 'Sua mensagem aparecerá aqui'}
+                            </p>
+                        </div>
+                    </div>
                     {/* Se o campo youtubeUrl estiver preenchido, exibe o iframe com autoplay */}
                     {youtubeUrl && (
                         <div className="mt-6">
@@ -429,7 +500,7 @@ export default function Home() {
                         <p className="text-white font-bold text-lg">2 - Faça o pagamento &#128176;</p>
                     </div>
                     <div className="p-4 border-pink-700 border-2 rounded-lg mb-4 lg:mb-0">
-                        <p className="text-white font-bold text-lg">3 - Receba seu site com QR Code &#128525;</p>
+                        <p className="text-white font-bold text-lg">3 - Receba seu site com QR Code e link de acesso a sua página criada &#128525;</p>
                     </div>
                     <div className="p-4 border-pink-700 border-2 rounded-lg">
                         <p className="text-white font-bold text-lg">4 - Faça a surpresa! &#127873;</p>
@@ -437,7 +508,7 @@ export default function Home() {
                 </div>
                 <div className="mt-6 text-center">
                     <button onClick={scrollToForm} className="bg-pink-700 border-white-100 border-2 text-white p-3 rounded-lg">
-                        Criar agora minha timeline
+                        {loading ? 'Sua página personalizada está sendo criada, aguarde...' : 'Criar minha Página personalizada'}
                     </button>
                 </div>
             </div>
@@ -447,23 +518,60 @@ export default function Home() {
                 <h2 className="text-2xl font-bold text-center mb-6">Perguntas Frequentes (FAQ)</h2>
                 <div className="space-y-4">
                     <div className="p-4 bg-gray-800 rounded-lg">
-                        <p className="font-bold">O que é a Loveyuu?</p>
-                        <p className="mt-2">Loveyuu é uma plataforma que permite criar páginas personalizadas de relacionamento para casais. Você pode adicionar fotos, uma mensagem especial e um contador que mostra há quanto tempo vocês estão juntos.</p>
+                        <p className="font-bold">O que é a Surprise for Love?</p>
+                        <p className="mt-2">É uma plataforma que permite criar uma página totalmente exclusiva de relacionamento para casais e ou para presentear amigos. Você pode adicionar fotos, uma mensagem especial, uma música e um contador que mostra há quanto tempo vocês estão juntos.</p>
                     </div>
                     <div className="p-4 bg-gray-800 rounded-lg">
-                        <p className="font-bold">Como posso criar uma página personalizada na Loveyuu?</p>
-                        <p className="mt-2">Para criar uma página personalizada, preencha o formulário com os nomes do casal, a data de início do relacionamento, uma mensagem de declaração e até 5 fotos. Depois, clique no botão &quot;Criar Casal&quot; e finalize o pagamento.</p>
+                        <p className="font-bold">Qual o valor para criar minha página personalizada?</p>
+                        <p className="mt-2">Para criar sua página personalizado, o valor é de R$ 21,90. Atualmente somente via cartão de crédito, mas estamos trabalhando para aceitarmos outras formas de pagamento como boleto e pix.</p>
                     </div>
                     <div className="p-4 bg-gray-800 rounded-lg">
-                        <p className="font-bold">O que está incluído na minha página personalizada?</p>
-                        <p className="mt-2">Sua página personalizada incluirá um contador ao vivo mostrando há quanto tempo vocês estão juntos, uma apresentação de slides com suas fotos e uma mensagem especial de declaração.</p>
+                        <p className="font-bold">O que está incluído na minha página personalizado?</p>
+                        <p className="mt-2">Sua página personalizada incluirá um contador ao vivo mostrando há quanto tempo vocês estão juntos, uma apresentação de slides com suas fotos, sua música escolhida e uma mensagem especial de declaração.</p>
+                    </div>
+                    <div className="p-4 bg-gray-800 rounded-lg">
+                        <p className="font-bold">O que está incluído na minha página personalizado?</p>
+                        <p className="mt-2">Sua página personalizada incluirá um contador ao vivo mostrando há quanto tempo vocês estão juntos, uma apresentação de slides com suas fotos, sua música escolhida e uma mensagem especial de declaração.</p>
                     </div>
                     <div className="p-4 bg-gray-800 rounded-lg">
                         <p className="font-bold">Como recebo minha página personalizada após o pagamento?</p>
-                        <p className="mt-2">Após a conclusão do pagamento, você receberá um QR code para compartilhar com seu parceiro(a) e um link via e-mail para acessar a página.</p>
+                        <p className="mt-2">Após a confirmação do pagamento, você receberá um QR Code para compartilhar com seu presenteado e fazer aquela bela surpresa.</p>
                     </div>
                 </div>
             </div>
+            {/* Rodapé com opções de contato */}
+            <footer className="mt-12 w-full bg-gray-800 text-white py-6">
+                <div className="flex justify-center items-center space-x-6">
+                    <a
+                        href="mailto:surpriseforlove@gmail.com"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-white hover:text-gray-400"
+                    >
+                        <FaEnvelope size={30} />
+                    </a>
+                    <a
+                        href="https://wa.me/5531996893519" // Substitua pelo seu número do WhatsApp
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-white hover:text-gray-400"
+                    >
+                        <FaWhatsapp size={30} />
+                    </a>
+                    <a
+                        href="https://www.instagram.com/surpriseforlove" // Substitua pelo seu perfil do Instagram
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-white hover:text-gray-400"
+                    >
+                        <FaInstagram size={30} />
+                    </a>
+                </div>
+
+                <div className="text-center mt-4 text-gray-400 text-sm">
+                    © {new Date().getFullYear()} SurpriseForLove. Todos os direitos reservados.
+                </div>
+            </footer>
         </div>
     );
 }

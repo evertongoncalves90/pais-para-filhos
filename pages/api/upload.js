@@ -5,6 +5,7 @@ import QRCode from 'qrcode';
 
 // Conexão com o MongoDB
 mongoose.connect(process.env.MONGODB_URI);
+const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'; // Default para localhost caso esteja em ambiente de desenvolvimento
 
 // Definir o modelo da Timeline no MongoDB (apenas se não existir)
 const Timeline = mongoose.models.Timeline || mongoose.model('Timeline', new mongoose.Schema({
@@ -26,7 +27,9 @@ export const config = {
 
 export default async function handler(req, res) {
     if (req.method === 'POST') {
-        const form = new IncomingForm();
+        const form = new IncomingForm({
+            multiples: true, // Permite múltiplos arquivos
+        });
 
         form.parse(req, async (err, fields, files) => {
             if (err) {
@@ -36,7 +39,6 @@ export default async function handler(req, res) {
             }
 
             console.log('Arquivos recebidos:', files);
-
             // Verificar se os campos foram recebidos corretamente
             console.log('Campos recebidos:', fields); // Certifique-se de que `tipoRelacao` está presente aqui
 
@@ -69,6 +71,7 @@ export default async function handler(req, res) {
                 const nomeAmigo = Array.isArray(fields.nomeAmigo) ? fields.nomeAmigo[0] : fields.nomeAmigo;
                 const dataAmizade = Array.isArray(fields.dataAmizade) ? fields.dataAmizade[0] : fields.dataAmizade;
                 const tipoRelacao = Array.isArray(fields.tipoRelacao) ? fields.tipoRelacao[0] : fields.tipoRelacao; // Adiciona o tipo de relacionamento
+                //const timelineId = Array.isArray(fields.timelineId) ? fields.timelineId[0] : fields.timelineId; // Aqui você obtém o timelineId passado no formulário
 
                 // Armazenar a timeline no banco de dados
                 const newTimeline = new Timeline({
@@ -79,20 +82,27 @@ export default async function handler(req, res) {
                     mensagem,
                     imageUrls,
                     youtubeUrl,
-                    tipoRelacao
+                    tipoRelacao,
+                    // Não precisa mais do campo timelineId
                 });
 
                 const savedTimeline = await newTimeline.save();
 
-                // Gerar a URL da timeline
-                const timelineUrl = `http://localhost:3000/timeline/${savedTimeline._id}`;
+                // Gerar a URL da timeline usando o _id do MongoDB
+                const timelineUrl = `${baseUrl}/timeline/${savedTimeline._id}`;
                 console.log('URL gerada para a timeline:', timelineUrl);
+
+                // Atualizar a timeline no banco de dados com a URL gerada
+                savedTimeline.timelineUrl = timelineUrl;
+                await savedTimeline.save();
 
                 // Gerar o QR Code
                 const qrCode = await QRCode.toDataURL(timelineUrl);
 
                 // Enviar o QR Code e a URL da timeline para o frontend
-                res.status(200).json({ qrCode, timelineUrl });
+                res.status(200).json({ qrCode, timelineUrl, timelineId: savedTimeline._id });  // Retorne o `timelineId` correto
+                console.log('ID Enviado para o frontend' + res.status(200).json({ qrCode, timelineUrl, timelineId: savedTimeline._id }))
+
             } catch (error) {
                 console.error('Erro ao salvar a timeline ou gerar o QR Code:', error);
                 res.status(500).json({ error: 'Erro ao salvar a timeline ou gerar o QR Code.' });

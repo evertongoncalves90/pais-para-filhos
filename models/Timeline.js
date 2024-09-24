@@ -1,11 +1,18 @@
 import mongoose from 'mongoose';
 
 const TimelineSchema = new mongoose.Schema({
-    nomeFilhos: String,
-    dataNascimento: String,
+    nomeCasal: String,
+    dataRelacao: String,
+    nomeAmigo: String,
+    dataAmizade: String,
     mensagem: String,
     imageUrls: [String],
-    youtubeUrl: String, // Novo campo para o link do YouTube
+    youtubeUrl: String,
+    tipoRelacao: String,
+    timelineUrl: String, // Para armazenar a URL gerada
+    timelineId: String // Adicionando este campo
 });
 
-export default mongoose.models.Timeline || mongoose.model('Timeline', TimelineSchema);
+const Timeline = mongoose.models.Timeline || mongoose.model('Timeline', TimelineSchema);
+
+export default Timeline;
