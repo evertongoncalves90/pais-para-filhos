@@ -50,14 +50,12 @@ export default function TimelinePage({ timeline }) {
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [timeElapsed, setTimeElapsed] = useState('');
     const [showHearts, setShowHearts] = useState(false); // Estado para controlar a exibição dos corações
-    const [showPlayer, setShowPlayer] = useState(false); // Controle para exibir ou ocultar o player de áudio
+    const [audioPlaying, setAudioPlaying] = useState(false); // Controle para o estado de áudio
 
     // Definir o nome da timeline e a mensagem com base no formulário
     const isAmor = tipoRelacao === 'amor'; // Baseado no valor salvo no formulário
-    //const nomeTimeline = isAmor ? nomeCasal : nomeAmigo;
     const relacaoOuAmizade = isAmor ? 'Te amando a ❤️:' : 'Amizade para sempre, a: 👊';
     const dataRelacionamento = isAmor ? dataRelacao : dataAmizade;
-
 
     // Controla a exibição dos corações a cada 15 segundos
     useEffect(() => {
@@ -73,15 +71,7 @@ export default function TimelinePage({ timeline }) {
 
     // Lógica para calcular o tempo desde a data de relacionamento ou amizade
     useEffect(() => {
-        /*if (!dataRelacionamento || isNaN(dataRelacionamento.getTime())) {
-            setTimeElapsed('Data inválida');
-            return;
-        }*/
-
-        // Certificar-se de que a dataRelacionamento é um objeto Date
         const dateObj = new Date(dataRelacionamento);
-
-        // Verificar se a data é válida
         if (isNaN(dateObj.getTime())) {
             setTimeElapsed('Data inválida');
             return;
@@ -101,8 +91,6 @@ export default function TimelinePage({ timeline }) {
             const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000);
 
             setTimeElapsed(`${years} anos, ${months} meses, ${days} dias, ${hours}h ${minutes}m ${seconds}s`);
-
-            //setTimeElapsed(`${years} anos, ${months} meses, ${days} dias`);
         };
 
         calculateTimeElapsed();
@@ -123,47 +111,40 @@ export default function TimelinePage({ timeline }) {
     // Função para extrair o ID do vídeo do YouTube
     const getYoutubeVideoId = (url) => {
         let videoId = null;
-
-        // Verifica se a URL está no formato "youtu.be"
         const shortUrlMatch = url.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/);
         if (shortUrlMatch) {
             videoId = shortUrlMatch[1];
         } else {
-            // Verifica se a URL está no formato padrão do YouTube
             const standardUrlMatch = url.match(/[?&]v=([a-zA-Z0-9_-]{11})/);
             if (standardUrlMatch) {
                 videoId = standardUrlMatch[1];
             }
         }
-
         return videoId;
     };
 
+    // Função para tocar o áudio
+    const handlePageClick = () => {
+        if (!audioPlaying && youtubeUrl) {
+            setAudioPlaying(true);
+        }
+    };
+
     return (
-        <div className="min-h-screen flex items-center justify-center bg-[#0a0a1a] p-6">
+        <div className="min-h-screen flex items-center justify-center bg-[#0a0a1a] p-6" onClick={handlePageClick}>
             {/* Container com borda branca e responsividade */}
             <div
                 className="p-8 bg-gray-900 text-white rounded-3xl shadow-xl border-4 border-white"
                 style={{
                     width: '100%',
                     maxWidth: '80vw',
-                    minWidth: '300px',  // Define um tamanho mínimo de largura
-                    maxWidth: '1200px',  // Define um tamanho máximo de largura
-                    height: 'auto'
+                    minWidth: '300px',
+                    maxWidth: '1200px',
+                    height: 'auto',
                 }}
-
             >
-                {/* Ícone do YouTube para tocar a música */}
-                {youtubeUrl && (
-                    <div className="mb-4 text-center">
-                        <button onClick={() => setShowPlayer(true)} className="bg-gray-700 p-1 rounded-full">
-                            <FaYoutube size={40} className="text-white" />
-                        </button>
-                    </div>
-                )}
-
-                {/* Exibir o player oculto quando o usuário clicar */}
-                {showPlayer && youtubeUrl && (
+                {/* Player de YouTube invisível */}
+                {audioPlaying && youtubeUrl && (
                     <iframe
                         width="0"
                         height="0"
@@ -179,9 +160,9 @@ export default function TimelinePage({ timeline }) {
                 <div
                     className="relative w-full rounded-lg overflow-hidden shadow-inner"
                     style={{
-                        height: '60vw',           // Altura com base na largura da tela para manter proporção
-                        minHeight: '400px',        // Altura mínima para garantir que as imagens não fiquem pequenas
-                        maxHeight: '700px'         // Altura máxima para evitar que a caixa fique muito grande
+                        height: '60vw',
+                        minHeight: '400px',
+                        maxHeight: '700px',
                     }}
                 >
                     {imageUrls.length > 0 ? (
@@ -190,7 +171,8 @@ export default function TimelinePage({ timeline }) {
                                 key={index}
                                 src={url}
                                 alt={`Imagem ${index + 1}`}
-                                className={`absolute top-0 left-0 w-full h-full object-cover transition-opacity duration-3000 ease-in-out ${index === currentImageIndex ? 'opacity-100' : 'opacity-0'}`}
+                                className={`absolute top-0 left-0 w-full h-full object-cover transition-opacity duration-3000 ease-in-out ${index === currentImageIndex ? 'opacity-100' : 'opacity-0'
+                                    }`}
                             />
                         ))
                     ) : (
@@ -212,7 +194,6 @@ export default function TimelinePage({ timeline }) {
                         💌 {mensagem || 'Mensagem não fornecida'}
                     </p>
                 </div>
-
             </div>
 
             {/* Corações caindo, exibidos somente se showHearts for true */}
