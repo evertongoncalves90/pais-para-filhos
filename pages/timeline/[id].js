@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import mongoose from 'mongoose';
 import Timeline from '../../models/Timeline';
 import { FaYoutube } from 'react-icons/fa'; // Importa o ícone do YouTube
@@ -35,16 +35,16 @@ const isIOSDevice = () => {
 // Função para gerar emojis de coração caindo
 const generateHearts = (isAmor) => {
     const hearts = [];
-    const emoji = isAmor ? '❤️' : '💙'; // Vermelho para "amor", azul para "amigo"
+    const emoji = isAmor ? '❤️' : '💙';
     for (let i = 0; i < 50; i++) {
         hearts.push(
             <span
                 key={i}
                 className="heart"
                 style={{
-                    left: `${Math.random() * 100}%`, // Posição horizontal aleatória
-                    animationDelay: `${Math.random() * 2}s`, // Atraso aleatório para cada coração
-                    fontSize: `${Math.random() * 2 + 1}rem`, // Tamanho aleatório
+                    left: `${Math.random() * 100}%`,
+                    animationDelay: `${Math.random() * 2}s`,
+                    fontSize: `${Math.random() * 2 + 1}rem`,
                 }}
             >
                 {emoji}
@@ -58,19 +58,101 @@ export default function TimelinePage({ timeline }) {
     const { dataRelacao, dataAmizade, mensagem, imageUrls, youtubeUrl, tipoRelacao } = timeline;
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [timeElapsed, setTimeElapsed] = useState('');
-    const [showHearts, setShowHearts] = useState(false); // Estado para controlar a exibição dos corações
-    const [showPlayer, setShowPlayer] = useState(false); // Controle para exibir ou ocultar o player de áudio
-    const [isIOS, setIsIOS] = useState(false); // Estado para detectar iOS
+    const [showHearts, setShowHearts] = useState(false);
+    const [showPlayer, setShowPlayer] = useState(false);
+    const playerRef = useRef(null);
+    const [isIOS, setIsIOS] = useState(false);
+    const [playerReady, setPlayerReady] = useState(false);
+    const [videoPlaying, setVideoPlaying] = useState(false);
 
-    // Definir o nome da timeline e a mensagem com base no formulário
-    const isAmor = tipoRelacao === 'amor'; // Baseado no valor salvo no formulário
+    const isAmor = tipoRelacao === 'amor';
     const relacaoOuAmizade = isAmor ? 'Te amando a ❤️:' : 'Amizade para sempre, a: 👊';
     const dataRelacionamento = isAmor ? dataRelacao : dataAmizade;
 
-    // Detecta se é um dispositivo iOS ao montar o componente
     useEffect(() => {
         setIsIOS(isIOSDevice());
     }, []);
+
+    useEffect(() => {
+        // Carrega a API do YouTube
+        if (!window.YT) {
+            const tag = document.createElement('script');
+            tag.src = 'https://www.youtube.com/iframe_api';
+            const firstScriptTag = document.getElementsByTagName('script')[0];
+            if (firstScriptTag && firstScriptTag.parentNode) {
+                firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+            }
+        }
+    }, []);
+
+    useEffect(() => {
+        if ((showPlayer && !isIOS) || isIOS) {
+            const initPlayer = () => {
+                if (playerRef.current === null) {
+                    const videoId = getYoutubeVideoId(youtubeUrl);
+                    playerRef.current = new window.YT.Player('youtube-player', {
+                        videoId: videoId,
+                        playerVars: {
+                            autoplay: !isIOS ? 1 : 0,
+                            loop: 1,
+                            playlist: videoId,
+                        },
+                        events: {
+                            'onReady': onPlayerReady,
+                            'onStateChange': onPlayerStateChange,
+                        },
+                    });
+                }
+            };
+
+            if (window.YT && window.YT.Player) {
+                initPlayer();
+            } else {
+                window.onYouTubeIframeAPIReady = initPlayer;
+            }
+        }
+    }, [showPlayer, isIOS, youtubeUrl]);
+
+    const handlePlayButtonClick = () => {
+        setShowPlayer(true);
+    };
+
+    const onPlayerReady = (event) => {
+        setPlayerReady(true);
+        if (!isIOS) {
+            event.target.playVideo();
+        }
+    };
+
+    const onPlayerStateChange = (event) => {
+        if (event.data === window.YT.PlayerState.PLAYING) {
+            setVideoPlaying(true);
+            if (isIOS) {
+                movePlayerToEnd();
+            } else {
+                hidePlayer();
+            }
+        }
+    };
+
+    const hidePlayer = () => {
+        const playerElement = document.getElementById('youtube-player');
+        if (playerElement) {
+            playerElement.style.width = '0px';
+            playerElement.style.height = '0px';
+            playerElement.style.visibility = 'hidden';
+        }
+    };
+
+    const movePlayerToEnd = () => {
+        const playerContainer = document.getElementById('youtube-player-container');
+        const pageEnd = document.getElementById('page-end');
+
+        if (playerContainer && pageEnd) {
+            playerContainer.parentNode.removeChild(playerContainer);
+            pageEnd.appendChild(playerContainer);
+        }
+    };
 
     // Controla a exibição dos corações a cada 15 segundos
     useEffect(() => {
@@ -139,6 +221,12 @@ export default function TimelinePage({ timeline }) {
             const standardUrlMatch = url.match(/[?&]v=([a-zA-Z0-9_-]{11})/);
             if (standardUrlMatch) {
                 videoId = standardUrlMatch[1];
+            } else {
+                // Verifica se a URL está no formato embed
+                const embedUrlMatch = url.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/);
+                if (embedUrlMatch) {
+                    videoId = embedUrlMatch[1];
+                }
             }
         }
 
@@ -164,7 +252,7 @@ export default function TimelinePage({ timeline }) {
                     <div className="mb-4 text-center">
                         {/* Se não for iOS, exibe o ícone do YouTube */}
                         {!isIOS && !showPlayer && (
-                            <button onClick={() => setShowPlayer(true)} className="bg-gray-700 p-1 rounded-full">
+                            <button onClick={handlePlayButtonClick} className="bg-gray-700 p-1 rounded-full">
                                 <FaYoutube size={40} className="text-white" />
                             </button>
                         )}
@@ -175,31 +263,19 @@ export default function TimelinePage({ timeline }) {
                                 <p className="text-center text-gray-400 mt-2 italic">
                                     Dê play para iniciar a música 🎶
                                 </p>
-                                <iframe
-                                    width="70"
-                                    height="35" // Proporção 16:9
-                                    src={`https://www.youtube.com/embed/${getYoutubeVideoId(youtubeUrl)}?loop=1&playlist=${getYoutubeVideoId(youtubeUrl)}`}
-                                    title="YouTube video player"
-                                    frameBorder="0"
-                                    allow="autoplay; encrypted-media"
-                                    allowFullScreen
-                                ></iframe>
+                                <div id="youtube-player-container">
+                                    <div id="youtube-player" />
+                                </div>
                             </>
                         )}
                     </div>
                 )}
 
-                {/* Exibir o player oculto quando o usuário clicar (para não iOS) */}
+                {/* Exibir o player quando o usuário clicar (para não iOS) */}
                 {!isIOS && showPlayer && youtubeUrl && (
-                    <iframe
-                        width="0"
-                        height="0" // Proporção 16:9
-                        src={`https://www.youtube.com/embed/${getYoutubeVideoId(youtubeUrl)}?autoplay=1&loop=1&playlist=${getYoutubeVideoId(youtubeUrl)}`}
-                        title="YouTube audio player"
-                        frameBorder="0"
-                        allow="autoplay; encrypted-media"
-                        allowFullScreen
-                    ></iframe>
+                    <div id="youtube-player-container" style={{ width: 0, height: 0, overflow: 'hidden' }}>
+                        <div id="youtube-player" />
+                    </div>
                 )}
 
                 {/* Imagens com transição automática */}
@@ -244,6 +320,9 @@ export default function TimelinePage({ timeline }) {
 
             {/* Corações caindo, exibidos somente se showHearts for true */}
             {showHearts && <div className="hearts-container">{generateHearts(isAmor)}</div>}
+
+            {/* Ponto de ancoragem para mover o player */}
+            <div id="page-end"></div>
         </div>
     );
 }

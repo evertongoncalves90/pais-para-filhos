@@ -34,6 +34,16 @@ button {
     left: 50px;
 }
 
+#youtube-player-container {
+    text-align: center;
+    margin-top: 20px;
+}
+
+#youtube-player-container iframe {
+    width: 160px !important;
+    height: 90px !important;
+}
+
 @keyframes fall {
     0% {
         transform: translateY(-100px) rotate(0deg);
