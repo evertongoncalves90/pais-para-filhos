@@ -92,6 +92,8 @@ export default function TimelinePage({ timeline }) {
                     const videoId = getYoutubeVideoId(youtubeUrl);
                     playerRef.current = new window.YT.Player('youtube-player', {
                         videoId: videoId,
+                        width: 50, // Largura em pixels
+                        height: 35, // Altura em pixels
                         playerVars: {
                             autoplay: !isIOS ? 1 : 0,
                             loop: 1,
@@ -127,9 +129,7 @@ export default function TimelinePage({ timeline }) {
     const onPlayerStateChange = (event) => {
         if (event.data === window.YT.PlayerState.PLAYING) {
             setVideoPlaying(true);
-            if (isIOS) {
-                movePlayerToEnd();
-            } else {
+            if (!isIOS) {
                 hidePlayer();
             }
         }
@@ -144,16 +144,6 @@ export default function TimelinePage({ timeline }) {
         }
     };
 
-    const movePlayerToEnd = () => {
-        const playerContainer = document.getElementById('youtube-player-container');
-        const pageEnd = document.getElementById('page-end');
-
-        if (playerContainer && pageEnd) {
-            playerContainer.parentNode.removeChild(playerContainer);
-            pageEnd.appendChild(playerContainer);
-        }
-    };
-
     // Controla a exibição dos corações a cada 15 segundos
     useEffect(() => {
         const heartInterval = setInterval(() => {
@@ -161,7 +151,7 @@ export default function TimelinePage({ timeline }) {
             setTimeout(() => {
                 setShowHearts(false);
             }, 4000); // Exibe os corações por 5 segundos
-        }, 24000); // Intervalo de 15 segundos
+        }, 20000); // Intervalo de 15 segundos
 
         return () => clearInterval(heartInterval); // Limpa o intervalo quando o componente é desmontado
     }, []);
@@ -263,7 +253,7 @@ export default function TimelinePage({ timeline }) {
                                 <p className="text-center text-gray-400 mt-2 italic">
                                     Dê play para iniciar a música 🎶
                                 </p>
-                                <div id="youtube-player-container">
+                                <div id="youtube-player-container" className="flex justify-center mt-2">
                                     <div id="youtube-player" />
                                 </div>
                             </>
@@ -321,8 +311,6 @@ export default function TimelinePage({ timeline }) {
             {/* Corações caindo, exibidos somente se showHearts for true */}
             {showHearts && <div className="hearts-container">{generateHearts(isAmor)}</div>}
 
-            {/* Ponto de ancoragem para mover o player */}
-            <div id="page-end"></div>
         </div>
     );
 }
