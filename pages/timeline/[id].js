@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import mongoose from 'mongoose';
 import Timeline from '../../models/Timeline';
 import { FaYoutube } from 'react-icons/fa'; // Importa o ícone do YouTube
@@ -58,7 +58,47 @@ export default function TimelinePage({ timeline }) {
     const [showPlayer, setShowPlayer] = useState(false); // Controle para exibir ou ocultar o player de áudio
 
     const [isIOS, setIsIOS] = useState(false);
-    //const [audioPlaying, setAudioPlaying] = useState(false); // Adiciona controle para áudio
+    const playerRef = useRef(null);
+
+    useEffect(() => {
+        // Carrega a API do YouTube
+        const tag = document.createElement('script');
+        tag.src = 'https://www.youtube.com/iframe_api';
+        const firstScriptTag = document.getElementsByTagName('script')[0];
+        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+        // Inicializa o player quando a API estiver pronta
+        window.onYouTubeIframeAPIReady = () => {
+            playerRef.current = new window.YT.Player('youtube-player', {
+                videoId: getYoutubeVideoId(youtubeUrl),
+                playerVars: {
+                    autoplay: 0, // Não inicia automaticamente
+                    loop: 1,
+                    playlist: getYoutubeVideoId(youtubeUrl),
+                },
+                events: {
+                    'onStateChange': onPlayerStateChange,
+                },
+            });
+        };
+    }, []);
+
+    // Função para detectar mudanças de estado no player
+    const onPlayerStateChange = (event) => {
+        if (event.data === window.YT.PlayerState.PLAYING) {
+            // Quando o vídeo começar a tocar, ocultar o player
+            setShowPlayer(false);
+        }
+    };
+
+    // Função para mostrar o player quando o usuário clicar no botão
+    const handlePlayButtonClick = () => {
+        setShowPlayer(true);
+        // Inicia a reprodução do vídeo quando o player estiver pronto
+        if (playerRef.current && playerRef.current.playVideo) {
+            playerRef.current.playVideo();
+        }
+    };
 
     // Definir o nome da timeline e a mensagem com base no formulário
     const isAmor = tipoRelacao === 'amor'; // Baseado no valor salvo no formulário
@@ -166,18 +206,25 @@ export default function TimelinePage({ timeline }) {
                 }}
 
             >
-                {/* Ícone do YouTube para tocar a música */}
+                {/* Botão para tocar a música */}
                 {youtubeUrl && !showPlayer && (
                     <div className="mb-4 text-center">
-                        <button onClick={() => setShowPlayer(true)} className="bg-gray-700 p-1 rounded-full">
+                        <button onClick={handlePlayButtonClick} className="bg-gray-700 p-1 rounded-full">
                             <FaYoutube size={40} className="text-white" />
                         </button>
                         {/* Exibe mensagem apenas para dispositivos iOS */}
                         {isIOS && (
                             <p className="text-center text-gray-400 mt-2 italic">
-                                Toque no botão acima para iniciar a música 🎶 (necessário no iOS).
+                                Toque no botão acima para iniciar a música 🎶.
                             </p>
                         )}
+                    </div>
+                )}
+
+                {/* Player do YouTube */}
+                {showPlayer && (
+                    <div className="mb-4 text-center">
+                        <div id="youtube-player" />
                     </div>
                 )}
 
@@ -186,7 +233,7 @@ export default function TimelinePage({ timeline }) {
                     <iframe
                         width="10%"
                         height="50"
-                        src={`https://www.youtube.com/embed/${getYoutubeVideoId(youtubeUrl)}?playlist=${getYoutubeVideoId(youtubeUrl)}`}
+                        src={`https://www.youtube.com/embed/${getYoutubeVideoId(youtubeUrl)}?autoplay=1&loop=1&playlist=${getYoutubeVideoId(youtubeUrl)}`}
                         title="YouTube audio player"
                         frameBorder="0"
                         allow="autoplay; encrypted-media"
