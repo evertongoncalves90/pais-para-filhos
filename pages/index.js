@@ -6,6 +6,27 @@ import { loadStripe } from '@stripe/stripe-js';
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLIC_KEY);
 
+// Função para fazer upload das imagens para o Cloudinary
+const uploadImages = async (files) => {
+    const uploadedImageUrls = [];
+
+    for (const file of files) {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('upload_preset', 'unsigned_timeline_upload'); // Substitua pelo nome do seu Upload Preset
+
+        const response = await fetch('https://api.cloudinary.com/v1_1/dmmuuq98x/image/upload', {
+            method: 'POST',
+            body: formData,
+        });
+
+        const data = await response.json();
+        uploadedImageUrls.push(data.secure_url);
+    }
+
+    return uploadedImageUrls;
+};
+
 // Função para gerar emojis de coração caindo
 const generateHearts = (isAmor) => {
     const hearts = [];
@@ -140,31 +161,32 @@ export default function Home() {
         setLoading(true); // Define o estado de loading como verdadeiro
 
         try {
+            // Fazer o upload das imagens para o Cloudinary
+            const imageUrls = await uploadImages(fotos);
 
-            // Montar os dados do formulário para enviar
-            const formData = new FormData();
-            for (let i = 0; i < fotos.length; i++) {
-                formData.append('fotos', fotos[i]);
-            }
-
-            formData.append('mensagem', mensagem);
-            formData.append('youtubeUrl', youtubeUrl);
+            // Criar o objeto com os dados do formulário
+            const formData = {
+                mensagem,
+                youtubeUrl,
+                imageUrls,
+                tipoRelacao: activeTab === 'amor' ? 'amor' : 'amigo',
+            };
 
             if (activeTab === 'amor') {
-                formData.append('nomeCasal', nomeCasal);
-                formData.append('dataRelacao', `${dataRelacao} ${horaRelacao}`);
+                formData.nomeCasal = nomeCasal;
+                formData.dataRelacao = `${dataRelacao} ${horaRelacao}`;
             } else {
-                formData.append('nomeAmigo', nomeAmigo);
-                formData.append('dataAmizade', dataAmizade);
+                formData.nomeAmigo = nomeAmigo;
+                formData.dataAmizade = dataAmizade;
             }
 
-            // Adicionando o tipo de relação
-            formData.append('tipoRelacao', activeTab === 'amor' ? 'amor' : 'amigo');
-
-            // Enviar os dados para o servidor (supõe que você tem um endpoint `/api/upload`)
+            // Enviar os dados para o servidor (agora em formato JSON)
             const uploadResponse = await fetch('/api/upload', {
                 method: 'POST',
-                body: formData,
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(formData),
             });
 
             if (!uploadResponse.ok) {
