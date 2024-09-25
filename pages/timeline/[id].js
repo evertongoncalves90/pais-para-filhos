@@ -62,8 +62,8 @@ export default function TimelinePage({ timeline }) {
     const [showPlayer, setShowPlayer] = useState(false);
     const playerRef = useRef(null);
     const [isIOS, setIsIOS] = useState(false);
-    const [playerReady, setPlayerReady] = useState(false);
-    const [videoPlaying, setVideoPlaying] = useState(false);
+    const [, setPlayerReady] = useState(false);
+    const [, setVideoPlaying] = useState(false);
 
     const isAmor = tipoRelacao === 'amor';
     const relacaoOuAmizade = isAmor ? 'Te amando a ❤️:' : 'Amizade para sempre, a: 👊';
