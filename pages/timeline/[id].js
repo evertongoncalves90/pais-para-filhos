@@ -92,8 +92,8 @@ export default function TimelinePage({ timeline }) {
                     const videoId = getYoutubeVideoId(youtubeUrl);
                     playerRef.current = new window.YT.Player('youtube-player', {
                         videoId: videoId,
-                        width: 50, // Largura em pixels
-                        height: 35, // Altura em pixels
+                        width: 40, // Largura em pixels
+                        height: 28, // Altura em pixels
                         playerVars: {
                             autoplay: !isIOS ? 1 : 0,
                             loop: 1,
