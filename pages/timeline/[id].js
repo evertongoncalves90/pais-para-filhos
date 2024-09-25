@@ -186,7 +186,7 @@ export default function TimelinePage({ timeline }) {
                     <iframe
                         width="10%"
                         height="50"
-                        src={`https://www.youtube.com/embed/${getYoutubeVideoId(youtubeUrl)}?autoplay=1&loop=1&playlist=${getYoutubeVideoId(youtubeUrl)}`}
+                        src={`https://www.youtube.com/embed/${getYoutubeVideoId(youtubeUrl)}?playlist=${getYoutubeVideoId(youtubeUrl)}`}
                         title="YouTube audio player"
                         frameBorder="0"
                         allow="autoplay; encrypted-media"
