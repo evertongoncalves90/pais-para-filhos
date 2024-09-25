@@ -28,6 +28,12 @@ button {
     animation-timing-function: ease-in-out;
 }
 
+.hidden-player {
+    position: absolute;
+    top: -9999px;
+    left: -9999px;
+}
+
 @keyframes fall {
     0% {
         transform: translateY(-100px) rotate(0deg);

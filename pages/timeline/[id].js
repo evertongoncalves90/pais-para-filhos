@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import mongoose from 'mongoose';
 import Timeline from '../../models/Timeline';
-import { FaYoutube } from 'react-icons/fa'; // Importa o ícone do YouTube
+import { FaYoutube } from 'react-icons/fa';
 
 export async function getServerSideProps(context) {
     const { id } = context.params;
@@ -35,16 +35,16 @@ const isIOSDevice = () => {
 // Função para gerar emojis de coração caindo
 const generateHearts = (isAmor) => {
     const hearts = [];
-    const emoji = isAmor ? '❤️' : '💙'; // Vermelho para "amor", azul para "amigo"
+    const emoji = isAmor ? '❤️' : '💙';
     for (let i = 0; i < 50; i++) {
         hearts.push(
             <span
                 key={i}
                 className="heart"
                 style={{
-                    left: `${Math.random() * 100}%`, // Posição horizontal aleatória
-                    animationDelay: `${Math.random() * 2}s`, // Atraso aleatório para cada coração
-                    fontSize: `${Math.random() * 2 + 1}rem`, // Tamanho aleatório
+                    left: `${Math.random() * 100}%`,
+                    animationDelay: `${Math.random() * 2}s`,
+                    fontSize: `${Math.random() * 2 + 1}rem`,
                 }}
             >
                 {emoji}
@@ -59,32 +59,26 @@ export default function TimelinePage({ timeline }) {
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [timeElapsed, setTimeElapsed] = useState('');
     const [showHearts, setShowHearts] = useState(false);
-    const [showPlayer, setShowPlayer] = useState(false);
-    const [isIOS, setIsIOS] = useState(false);
+    const [hidePlayer, setHidePlayer] = useState(false);
 
-    // Definir o nome da timeline e a mensagem com base no formulário
     const isAmor = tipoRelacao === 'amor';
     const relacaoOuAmizade = isAmor ? 'Te amando a ❤️:' : 'Amizade para sempre, a: 👊';
     const dataRelacionamento = isAmor ? dataRelacao : dataAmizade;
 
     useEffect(() => {
-        setIsIOS(isIOSDevice());
-    }, []);
-
-    // Controla a exibição dos corações a cada 15 segundos
-    useEffect(() => {
+        // Controla a exibição dos corações
         const heartInterval = setInterval(() => {
             setShowHearts(true);
             setTimeout(() => {
                 setShowHearts(false);
-            }, 4000); // Exibe os corações por 4 segundos
-        }, 24000); // Intervalo de 24 segundos
+            }, 4000);
+        }, 24000);
 
         return () => clearInterval(heartInterval);
     }, []);
 
-    // Lógica para calcular o tempo desde a data de relacionamento ou amizade
     useEffect(() => {
+        // Calcula o tempo decorrido
         const dateObj = new Date(dataRelacionamento);
 
         if (isNaN(dateObj.getTime())) {
@@ -114,8 +108,8 @@ export default function TimelinePage({ timeline }) {
         return () => clearInterval(timer);
     }, [dataRelacionamento]);
 
-    // Lógica para alternar as imagens automaticamente
     useEffect(() => {
+        // Alterna as imagens automaticamente
         const interval = setInterval(() => {
             setCurrentImageIndex((prevIndex) => (prevIndex + 1) % imageUrls.length);
         }, 3000);
@@ -134,25 +128,23 @@ export default function TimelinePage({ timeline }) {
             if (standardUrlMatch) {
                 videoId = standardUrlMatch[1];
             } else {
-                // Caso a URL seja direta
-                const directUrlMatch = url.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/);
-                if (directUrlMatch) {
-                    videoId = directUrlMatch[1];
+                const embedUrlMatch = url.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/);
+                if (embedUrlMatch) {
+                    videoId = embedUrlMatch[1];
                 }
             }
         }
         return videoId;
     };
 
-    // Função para mostrar o player quando o usuário clicar no botão
     const handlePlayButtonClick = () => {
-        setShowPlayer(true);
-        // Para iOS, ocultar o player após alguns segundos
-        if (isIOS) {
-            setTimeout(() => {
-                setShowPlayer(false);
-            }, 5000); // Ajuste o tempo conforme necessário
-        }
+        setHidePlayer(false);
+        console.log('Player mostrado');
+
+        setTimeout(() => {
+            setHidePlayer(true);
+            console.log('Player ocultado');
+        }, 3000); // Ajuste o tempo conforme necessário
     };
 
     return (
@@ -168,13 +160,13 @@ export default function TimelinePage({ timeline }) {
                 }}
             >
                 {/* Botão para tocar a música */}
-                {youtubeUrl && !showPlayer && (
+                {youtubeUrl && (
                     <div className="mb-4 text-center">
                         <button onClick={handlePlayButtonClick} className="bg-gray-700 p-1 rounded-full">
                             <FaYoutube size={40} className="text-white" />
                         </button>
                         {/* Exibe mensagem apenas para dispositivos iOS */}
-                        {isIOS && (
+                        {isIOSDevice() && (
                             <p className="text-center text-gray-400 mt-2 italic">
                                 Toque no botão acima para iniciar a música 🎶.
                             </p>
@@ -183,12 +175,12 @@ export default function TimelinePage({ timeline }) {
                 )}
 
                 {/* Player do YouTube */}
-                {showPlayer && youtubeUrl && (
-                    <div className="mb-4 text-center">
+                {youtubeUrl && (
+                    <div className={`mb-4 text-center ${hidePlayer ? 'hidden-player' : ''}`}>
                         <iframe
                             id="youtube-player"
                             width="360"
-                            height="203" // Proporção 16:9
+                            height="203"
                             src={`https://www.youtube.com/embed/${getYoutubeVideoId(youtubeUrl)}?autoplay=1&loop=1&playlist=${getYoutubeVideoId(youtubeUrl)}`}
                             title="YouTube video player"
                             frameBorder="0"
@@ -238,7 +230,7 @@ export default function TimelinePage({ timeline }) {
                 </div>
             </div>
 
-            {/* Corações caindo, exibidos somente se showHearts for true */}
+            {/* Corações caindo */}
             {showHearts && <div className="hearts-container">{generateHearts(isAmor)}</div>}
         </div>
     );
