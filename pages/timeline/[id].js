@@ -184,8 +184,8 @@ export default function TimelinePage({ timeline }) {
                 {/* Exibir o player oculto quando o usuário clicar */}
                 {showPlayer && youtubeUrl && (
                     <iframe
-                        width="0"
-                        height="0"
+                        width="10%"
+                        height="50"
                         src={`https://www.youtube.com/embed/${getYoutubeVideoId(youtubeUrl)}?autoplay=1&loop=1&playlist=${getYoutubeVideoId(youtubeUrl)}`}
                         title="YouTube audio player"
                         frameBorder="0"
