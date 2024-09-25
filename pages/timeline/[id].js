@@ -175,7 +175,7 @@ export default function TimelinePage({ timeline }) {
                                 <p className="text-center text-gray-400 mt-2 italic">
                                     Dê play para iniciar a música 🎶
                                 </p>
-                                <iframe className='hidden-player'
+                                <iframe
                                     width="70"
                                     height="35" // Proporção 16:9
                                     src={`https://www.youtube.com/embed/${getYoutubeVideoId(youtubeUrl)}?loop=1&playlist=${getYoutubeVideoId(youtubeUrl)}`}
