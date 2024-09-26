@@ -636,7 +636,7 @@ export default function Home() {
                         <FaWhatsapp size={30} />
                     </a>
                     <a
-                        href="https://www.instagram.com/surpriseforlove" // Substitua pelo seu perfil do Instagram
+                        href="https://www.instagram.com/surpriseforlove_ofi" // Substitua pelo seu perfil do Instagram
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-white hover:text-gray-400"
