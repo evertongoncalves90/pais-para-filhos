@@ -125,7 +125,7 @@ const SuccessPage = ({ timelineUrl }) => {
             <footer className="mt-12 w-full bg-gray-800 text-white py-6">
                 <div className="flex justify-center items-center space-x-6">
                     <a
-                        href="mailto:surpriseforlove@gmail.com"
+                        href="mailto:forlovesurprise@gmail.com"
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-white hover:text-gray-400"
