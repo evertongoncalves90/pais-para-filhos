@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { FaUpload, FaWhatsapp, FaEnvelope, FaInstagram } from 'react-icons/fa';
 //import QRCode from 'react-qr-code'; // Atualizada para usar 'react-qr-code'
 import { loadStripe } from '@stripe/stripe-js';
+import Modal from '../components/Modal';
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLIC_KEY);
 
@@ -67,6 +68,8 @@ export default function Home() {
     const formRef = useRef(null);
     const [showHearts, setShowHearts] = useState(false); // Estado para controlar a exibição dos corações
     const [loading, setLoading] = useState(false); // Adiciona o estado de loading
+    // Inside your component:
+    const [fotosError, setFotosError] = useState('');
 
     // Controla a exibição dos corações a cada 15 segundos
     useEffect(() => {
@@ -293,7 +296,7 @@ export default function Home() {
                     </div>
 
                     <form
-                        //onSubmit={handleSubmit}
+                        onSubmit={handlePayment}
                         className={`w-full p-8 rounded-lg shadow border-4 border-white ${activeTab === 'amor' ? 'bg-pink-200' : 'bg-blue-200'} font-poppins`}
                     >
                         {/* Campos de formulário */}
@@ -410,9 +413,56 @@ export default function Home() {
                                 multiple
                                 disabled={loading}
                                 accept="image/*"
-                                onChange={(e) => setFotos(Array.from(e.target.files))}
+                                onChange={(e) => {
+                                    const selectedFiles = Array.from(e.target.files);
+                                    const totalFiles = fotos.length + selectedFiles.length;
+
+                                    if (totalFiles > 10) {
+                                        setFotosError('Você pode selecionar no máximo 10 fotos no total.');
+                                        e.target.value = null;
+                                    } else {
+                                        setFotosError('');
+                                        setFotos(prevFotos => [...prevFotos, ...selectedFiles]);
+                                        e.target.value = null;
+                                    }
+                                }}
                                 className="hidden"
                             />
+                            {fotosError && (
+                                <p className="text-red-500 text-sm mt-2">{fotosError}</p>
+                            )}
+                            {fotos.length > 0 && (
+                                <div className="mt-2">
+                                    <ul>
+                                        {fotos.map((file, index) => (
+                                            <li key={index} className="flex justify-between items-center">
+                                                <span>{file.name}</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const updatedFotos = fotos.filter((_, i) => i !== index);
+                                                        setFotos(updatedFotos);
+                                                        setFotosError('');
+                                                    }}
+                                                    className="text-red-500 text-sm"
+                                                >
+                                                    Remover
+                                                </button>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setFotos([]);
+                                            setFotosError('');
+                                        }}
+                                        className="mt-2 text-red-500 underline"
+                                    >
+                                        Remover todas as fotos
+                                    </button>
+                                </div>
+                            )}
                         </div>
 
                         <div className="mb-4">
@@ -431,17 +481,22 @@ export default function Home() {
                         </div>
 
                         <button
-                            //type="submit"
-                            onClick={handlePayment}
+                            type="submit"
                             className={`w-full text-white p-3 rounded-lg ${activeTab === 'amor' ? 'bg-pink-600' : 'bg-blue-600'}`}
-                            disabled={loading}  // Desabilitar o botão durante o loading
+                            disabled={loading}
                         >
                             {loading ? 'Sua página personalizada está sendo criada, aguarde...' : 'Criar minha Página personalizada'}
                         </button>
+
                         <div className="p-4 rounded-lg mb-4 lg:mb-0">
                             <p className="text-gray-800 font-bold text-lg">por R$ 21,90 &#128176;</p>
                         </div>
                     </form>
+                    {/* Modal de carregamento */}
+                    <Modal
+                        isVisible={loading}
+                        message="Aguarde, estamos criando sua página personalizada ❤️"
+                    />
                 </div>
 
                 {/* Prévia da Timeline */}
