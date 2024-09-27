@@ -64,7 +64,6 @@ export default function TimelinePage({ timeline }) {
     const dataRelacionamento = isAmor ? dataRelacao : dataAmizade;
 
     const [isYouTubeAPIReady, setIsYouTubeAPIReady] = useState(false);
-
     const playerContainerRef = useRef(null); // Ref para o elemento DOM
     const playerInstanceRef = useRef(null);  // Ref para a instância do player
     const [isPlayerReady, setIsPlayerReady] = useState(false); // Estado para verificar se o player está pronto
@@ -178,15 +177,15 @@ export default function TimelinePage({ timeline }) {
         return videoId;
     };
 
-    const initializePlayer = () => {
+    const initializePlayer = (autoplay = false) => {
         const videoId = getYoutubeVideoId(youtubeUrl);
         if (videoId && window.YT && window.YT.Player && playerContainerRef.current) {
             playerInstanceRef.current = new window.YT.Player(playerContainerRef.current.id, {
                 videoId: videoId,
-                width: '0',
-                height: '0',
+                width: '1', // Dimensões mínimas
+                height: '1',
                 playerVars: {
-                    autoplay: 0,
+                    autoplay: autoplay ? 1 : 0,
                     controls: 0,
                     loop: 1,
                     playlist: videoId,
@@ -197,7 +196,6 @@ export default function TimelinePage({ timeline }) {
                     autohide: 1,
                     showinfo: 0,
                     rel: 0,
-                    // Removemos 'mute: 1'
                 },
                 events: {
                     onReady: onPlayerReady,
@@ -213,19 +211,11 @@ export default function TimelinePage({ timeline }) {
     };
 
     const handleStartAudio = () => {
-        if (isPlayerReady && playerInstanceRef.current) {
-            // Verificar se unMute() está disponível
-            if (typeof playerInstanceRef.current.unMute === 'function') {
-                playerInstanceRef.current.unMute();
-            } else {
-                console.warn('unMute() not available, trying setVolume.');
-                playerInstanceRef.current.setVolume(100); // Define o volume para 100%
-            }
-            playerInstanceRef.current.playVideo();
-            setIsModalVisible(false); // Oculta o modal
-        } else {
-            console.warn('Player not ready yet.');
+        if (playerInstanceRef.current) {
+            playerInstanceRef.current.destroy();
         }
+        initializePlayer(true); // Recria o player com autoplay
+        setIsModalVisible(false); // Oculta o modal
     };
 
     return (
@@ -298,9 +288,9 @@ export default function TimelinePage({ timeline }) {
             {/* Corações caindo, exibidos somente se showHearts for true */}
             {showHearts && <div className="hearts-container">{generateHearts(isAmor)}</div>}
 
-            {/* Player do YouTube oculto */}
+            {/* Player do YouTube com dimensões mínimas e visível */}
             {youtubeUrl && (
-                <div style={{ display: 'none' }}>
+                <div style={{ width: '1px', height: '1px', opacity: 0 }}>
                     <div id="youtube-player" ref={playerContainerRef}></div>
                 </div>
             )}
