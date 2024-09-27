@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import mongoose from 'mongoose';
 import Timeline from '../../models/Timeline';
-import { FaYoutube } from 'react-icons/fa'; // Importa o ícone do YouTube
 
 export async function getServerSideProps(context) {
     const { id } = context.params;
@@ -59,22 +58,24 @@ export default function TimelinePage({ timeline }) {
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [timeElapsed, setTimeElapsed] = useState('');
     const [showHearts, setShowHearts] = useState(false);
-    const [showPlayer, setShowPlayer] = useState(false);
-    const playerRef = useRef(null);
-    const [isIOS, setIsIOS] = useState(false);
-    const [, setPlayerReady] = useState(false);
-    const [, setVideoPlaying] = useState(false);
-
+    const [, setIsIOS] = useState(false);
     const isAmor = tipoRelacao === 'amor';
     const relacaoOuAmizade = isAmor ? 'Te amando a ❤️:' : 'Amizade para sempre, a: 👊';
     const dataRelacionamento = isAmor ? dataRelacao : dataAmizade;
+
+    const [isYouTubeAPIReady, setIsYouTubeAPIReady] = useState(false);
+
+    const playerContainerRef = useRef(null); // Ref para o elemento DOM
+    const playerInstanceRef = useRef(null);  // Ref para a instância do player
+    const [isPlayerReady, setIsPlayerReady] = useState(false); // Estado para verificar se o player está pronto
+    const [isModalVisible, setIsModalVisible] = useState(true);
 
     useEffect(() => {
         setIsIOS(isIOSDevice());
     }, []);
 
+    // Carrega a API do YouTube e atualiza o estado quando estiver pronta
     useEffect(() => {
-        // Carrega a API do YouTube
         if (!window.YT) {
             const tag = document.createElement('script');
             tag.src = 'https://www.youtube.com/iframe_api';
@@ -82,67 +83,21 @@ export default function TimelinePage({ timeline }) {
             if (firstScriptTag && firstScriptTag.parentNode) {
                 firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
             }
+
+            window.onYouTubeIframeAPIReady = () => {
+                setIsYouTubeAPIReady(true);
+            };
+        } else {
+            setIsYouTubeAPIReady(true);
         }
     }, []);
 
+    // Inicializa o player quando a API estiver pronta
     useEffect(() => {
-        if ((showPlayer && !isIOS) || isIOS) {
-            const initPlayer = () => {
-                if (playerRef.current === null) {
-                    const videoId = getYoutubeVideoId(youtubeUrl);
-                    playerRef.current = new window.YT.Player('youtube-player', {
-                        videoId: videoId,
-                        width: 40, // Largura em pixels
-                        height: 28, // Altura em pixels
-                        playerVars: {
-                            autoplay: !isIOS ? 1 : 0,
-                            loop: 1,
-                            playlist: videoId,
-                        },
-                        events: {
-                            'onReady': onPlayerReady,
-                            'onStateChange': onPlayerStateChange,
-                        },
-                    });
-                }
-            };
-
-            if (window.YT && window.YT.Player) {
-                initPlayer();
-            } else {
-                window.onYouTubeIframeAPIReady = initPlayer;
-            }
+        if (isYouTubeAPIReady && youtubeUrl) {
+            initializePlayer();
         }
-    }, [showPlayer, isIOS, youtubeUrl]);
-
-    const handlePlayButtonClick = () => {
-        setShowPlayer(true);
-    };
-
-    const onPlayerReady = (event) => {
-        setPlayerReady(true);
-        if (!isIOS) {
-            event.target.playVideo();
-        }
-    };
-
-    const onPlayerStateChange = (event) => {
-        if (event.data === window.YT.PlayerState.PLAYING) {
-            setVideoPlaying(true);
-            if (!isIOS) {
-                hidePlayer();
-            }
-        }
-    };
-
-    const hidePlayer = () => {
-        const playerElement = document.getElementById('youtube-player');
-        if (playerElement) {
-            playerElement.style.width = '0px';
-            playerElement.style.height = '0px';
-            playerElement.style.visibility = 'hidden';
-        }
-    };
+    }, [isYouTubeAPIReady, youtubeUrl]);
 
     // Controla a exibição dos corações a cada 15 segundos
     useEffect(() => {
@@ -223,6 +178,56 @@ export default function TimelinePage({ timeline }) {
         return videoId;
     };
 
+    const initializePlayer = () => {
+        const videoId = getYoutubeVideoId(youtubeUrl);
+        if (videoId && window.YT && window.YT.Player && playerContainerRef.current) {
+            playerInstanceRef.current = new window.YT.Player(playerContainerRef.current.id, {
+                videoId: videoId,
+                width: '0',
+                height: '0',
+                playerVars: {
+                    autoplay: 0,
+                    controls: 0,
+                    loop: 1,
+                    playlist: videoId,
+                    modestbranding: 1,
+                    fs: 0,
+                    cc_load_policy: 0,
+                    iv_load_policy: 3,
+                    autohide: 1,
+                    showinfo: 0,
+                    rel: 0,
+                    // Removemos 'mute: 1'
+                },
+                events: {
+                    onReady: onPlayerReady,
+                },
+            });
+        } else {
+            console.warn('YouTube API not ready yet or container not available.');
+        }
+    };
+
+    const onPlayerReady = () => {
+        setIsPlayerReady(true);
+    };
+
+    const handleStartAudio = () => {
+        if (isPlayerReady && playerInstanceRef.current) {
+            // Verificar se unMute() está disponível
+            if (typeof playerInstanceRef.current.unMute === 'function') {
+                playerInstanceRef.current.unMute();
+            } else {
+                console.warn('unMute() not available, trying setVolume.');
+                playerInstanceRef.current.setVolume(100); // Define o volume para 100%
+            }
+            playerInstanceRef.current.playVideo();
+            setIsModalVisible(false); // Oculta o modal
+        } else {
+            console.warn('Player not ready yet.');
+        }
+    };
+
     return (
         <div className="min-h-screen flex items-center justify-center bg-[#0a0a1a] p-6">
             {/* Container com borda branca e responsividade */}
@@ -237,34 +242,16 @@ export default function TimelinePage({ timeline }) {
                 }}
 
             >
-                {/* Se houver uma URL do YouTube */}
-                {youtubeUrl && (
-                    <div className="mb-4 text-center">
-                        {/* Se não for iOS, exibe o ícone do YouTube */}
-                        {!isIOS && !showPlayer && (
-                            <button onClick={handlePlayButtonClick} className="bg-gray-700 p-1 rounded-full">
-                                <FaYoutube size={40} className="text-white" />
-                            </button>
-                        )}
-
-                        {/* Se for iOS, exibe o player diretamente com a mensagem */}
-                        {isIOS && (
-                            <>
-                                <p className="text-center text-gray-400 mt-2 italic">
-                                    Dê play para iniciar a música 🎶
-                                </p>
-                                <div id="youtube-player-container" className="flex justify-center mt-2">
-                                    <div id="youtube-player" />
-                                </div>
-                            </>
-                        )}
-                    </div>
-                )}
-
-                {/* Exibir o player quando o usuário clicar (para não iOS) */}
-                {!isIOS && showPlayer && youtubeUrl && (
-                    <div id="youtube-player-container" style={{ width: 0, height: 0, overflow: 'hidden' }}>
-                        <div id="youtube-player" />
+                {/* Modal para iniciar o áudio */}
+                {youtubeUrl && isModalVisible && (
+                    <div className="fixed inset-0 flex items-center justify-center bg-gray-800 z-50">
+                        <button
+                            onClick={handleStartAudio}
+                            className="bg-gray-700 text-white border-2 border-white px-4 py-2 rounded-lg"
+                            disabled={!isPlayerReady}
+                        >
+                            Toque aqui ❤️
+                        </button>
                     </div>
                 )}
 
@@ -283,8 +270,8 @@ export default function TimelinePage({ timeline }) {
                                 key={index}
                                 src={url}
                                 alt={`Imagem ${index + 1}`}
-                                className={`absolute top-0 left-0 w-full h-full object-cover transition-opacity duration-3000 ease-in-out ${index === currentImageIndex ? 'opacity-100' : 'opacity-0'}`}
-                            />
+                                className={`absolute top-0 left-0 w-full h-full object-cover transition-opacity duration-3000 ease-in-out ${index === currentImageIndex ? 'opacity-100' : 'opacity-0'
+                                    }`} />
                         ))
                     ) : (
                         <p className="text-center text-gray-400">Adicione fotos para visualizar</p>
@@ -311,6 +298,12 @@ export default function TimelinePage({ timeline }) {
             {/* Corações caindo, exibidos somente se showHearts for true */}
             {showHearts && <div className="hearts-container">{generateHearts(isAmor)}</div>}
 
+            {/* Player do YouTube oculto */}
+            {youtubeUrl && (
+                <div style={{ display: 'none' }}>
+                    <div id="youtube-player" ref={playerContainerRef}></div>
+                </div>
+            )}
         </div>
     );
 }

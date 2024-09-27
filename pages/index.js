@@ -1,7 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-//import Image from 'next/image';
 import { FaUpload, FaWhatsapp, FaEnvelope, FaInstagram } from 'react-icons/fa';
-//import QRCode from 'react-qr-code'; // Atualizada para usar 'react-qr-code'
 import { loadStripe } from '@stripe/stripe-js';
 import Modal from '../components/Modal';
 
@@ -61,15 +59,13 @@ export default function Home() {
     const [fotos, setFotos] = useState([]);
     const [previewUrl, setPreviewUrl] = useState(null);
     const [youtubeUrl, setYoutubeUrl] = useState('');
-    //const [qrCodeUrl, setQrCodeUrl] = useState(null); // URL gerada para o QR Code
-    //const [, setTimelineId] = useState(null); // ID da timeline gerado
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [timeElapsed, setTimeElapsed] = useState('');
     const formRef = useRef(null);
     const [showHearts, setShowHearts] = useState(false); // Estado para controlar a exibição dos corações
     const [loading, setLoading] = useState(false); // Adiciona o estado de loading
-    // Inside your component:
     const [fotosError, setFotosError] = useState('');
+
 
     // Controla a exibição dos corações a cada 15 segundos
     useEffect(() => {
