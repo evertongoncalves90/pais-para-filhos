@@ -22,7 +22,7 @@ export default async function handler(req, res) {
                                 product_data: {
                                     name: 'Surprise For Love: Sua página personalizada para seu amor + QRCode para fazer aquela surpresa!',
                                 },
-                                unit_amount: 50, // Exemplo: 2190 = 21,90 BRL
+                                unit_amount: 2190, // Exemplo: 2190 = 21,90 BRL
                             },
                             quantity: 1,
                         },
