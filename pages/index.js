@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { FaUpload, FaWhatsapp, FaEnvelope, FaInstagram } from 'react-icons/fa';
 import { loadStripe } from '@stripe/stripe-js';
 import Modal from '../components/Modal';
+import PaymentModal from '../components/PaymentModal'; // Importa o componente do modal
+import { useRouter } from 'next/router'; // Importe o useRouter aqui
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLIC_KEY);
 
@@ -65,6 +67,10 @@ export default function Home() {
     const [showHearts, setShowHearts] = useState(false); // Estado para controlar a exibição dos corações
     const [loading, setLoading] = useState(false); // Adiciona o estado de loading
     const [fotosError, setFotosError] = useState('');
+    const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+    const [timelineId, setTimelineId] = useState(null); // Armazena o timelineId gerado
+    const router = useRouter(); // Use o useRouter no topo do componente funcional
+
 
 
     // Controla a exibição dos corações a cada 15 segundos
@@ -199,40 +205,52 @@ export default function Home() {
                 throw new Error('Erro ao gerar o timelineId');
             }
 
-            // Faz a requisição para criar a sessão de pagamento no Stripe
+            // Armazenar o timelineId e abrir o modal de escolha de pagamento
+            setTimelineId(timelineId);
+            setIsPaymentModalOpen(true);
+            setLoading(false); // Desativa o loading antes de exibir o modal de pagamento
+        } catch (error) {
+            console.error('Erro ao processar a geração da página e o pagamento:', error);
+            setLoading(false); // Remove o loading em caso de erro
+        }
+    };
+
+    // Função para processar o método de pagamento selecionado no modal
+    const handlePaymentMethodSelect = async (method) => {
+        setLoading(true);
+
+        try {
             const paymentResponse = await fetch('/api/checkout_sessions', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    nomeCasal,
-                    dataRelacao,
-                    nomeAmigo,
-                    dataAmizade,
-                    mensagem,
-                    tipoRelacao: activeTab === 'amor' ? 'amor' : 'amigo',
-                    timelineId, // Enviar o timelineId para o servidor
+                    timelineId,  // Enviar o timelineId para o servidor
+                    paymentMethod: method,  // 'credit' ou 'pix'
                 }),
             });
 
-            const { sessionId } = await paymentResponse.json();
+            if (method === 'credit') {
+                const { sessionId } = await paymentResponse.json();
+                if (sessionId) {
+                    const stripe = await stripePromise;
+                    const { error } = await stripe.redirectToCheckout({ sessionId });
 
-            if (sessionId) {
-                const stripe = await stripePromise;
-                const { error } = await stripe.redirectToCheckout({ sessionId });
-
-                if (error) {
-                    console.error('Erro ao redirecionar para o Checkout:', error);
-                    setLoading(false); // Remove o loading em caso de erro
+                    if (error) {
+                        console.error('Erro ao redirecionar para o Checkout:', error);
+                    }
                 }
-            } else {
-                console.error('Erro ao criar a sessão de pagamento');
-                setLoading(false); // Remove o loading em caso de erro
+            } else if (method === 'pix') {
+                // Verificar se o redirecionamento está acontecendo corretamente
+                setLoading(false);
+                router.push(`/pix_payment?timelineId=${timelineId}`);
             }
         } catch (error) {
-            console.error('Erro ao processar a geração da página e o pagamento:', error);
-            setLoading(false); // Remove o loading em caso de erro
+            console.error('Erro ao processar pagamento:', error);
+            setLoading(false);
+        } finally {
+            setIsPaymentModalOpen(false); // Fecha o modal de pagamento
         }
     };
 
@@ -492,6 +510,13 @@ export default function Home() {
                     <Modal
                         isVisible={loading}
                         message="Aguarde, estamos criando sua página personalizada ❤️"
+                    />
+
+                    {/* Modal de Pagamento */}
+                    <PaymentModal
+                        isVisible={isPaymentModalOpen}
+                        onClose={() => setIsPaymentModalOpen(false)}
+                        onSelectPaymentMethod={handlePaymentMethodSelect}
                     />
                 </div>
 
